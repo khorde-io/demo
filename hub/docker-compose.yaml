@@ -1,0 +1,124 @@
+# Local Khorde Hub for the demo, from the khorde.io quickstart ("Run the Hub
+# locally"). Differences from the quickstart, so it can run next to another
+# local stack:
+#   - the IdP listens on :9311 (auth.localhost:9311)
+#   - agents reach the broker on host port 4223
+#   - Postgres and QuestDB are not published on the host
+#
+#   docker compose up -d        control plane at http://localhost:8085/ui
+#   docker compose down -v      start over (wipes the IdP and databases)
+name: khorde-demo-hub
+services:
+  hub:
+    image: docker.io/khorde/hub:latest
+    ports:
+      - "8085:8085"
+      - "4223:4222"
+    volumes:
+      - ./config.yaml:/opt/scada-service/config.yaml
+      - zitadel-machinekey:/machinekey:ro
+    extra_hosts:
+      # So the Hub container can reach the IdP the same way your browser does.
+      - "auth.localhost:host-gateway"
+    depends_on:
+      zitadel: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      questdb: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: "1s"
+      timeout: "30s"
+      retries: 30
+      start_period: "5s"
+  questdb:
+    image: "questdb/questdb:9.4.2"
+  zitadel:
+    restart: "unless-stopped"
+    image: "ghcr.io/zitadel/zitadel:v4.15.1"
+    command: >-
+      start-from-init
+      --masterkey "MasterkeyNeedsToHave32Characters"
+      --tlsMode disabled
+      --config /config/zitadel.yaml
+      --steps /config/zitadel.yaml
+    ports:
+      - "9311:9311"
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - zitadel-machinekey:/machinekey/:rw
+    configs:
+      - source: zitadel
+        target: /config/zitadel.yaml
+    extra_hosts:
+      # So the IdP's actions can call the Hub's webhook.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready", "--config", "/config/zitadel.yaml"]
+      interval: "5s"
+      timeout: "5s"
+      retries: 24
+      start_period: "60s"
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=control_plane
+      - PGUSER=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "control_plane", "-U", "postgres"]
+      interval: "5s"
+      timeout: "30s"
+      retries: 5
+      start_period: "20s"
+volumes:
+  # tmpfs is the only local-driver volume that can be uid 1000 so the IdP can
+  # write MachineKeyPath without a host bind
+  zitadel-machinekey:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: uid=1000,gid=1000,mode=0700
+configs:
+  zitadel:
+    content: |
+      Port: 9311
+      ExternalDomain: auth.localhost
+      ExternalPort: 9311
+      ExternalSecure: false
+      TLS:
+        Enabled: false
+      Database:
+        postgres:
+          Host: postgres
+          Port: 5432
+          Database: zitadel
+          User:
+            Username: zitadel
+            Password: zitadel
+            SSL:
+              Mode: disable
+          Admin:
+            Username: postgres
+            Password: postgres
+            SSL:
+              Mode: disable
+      Eventstore:
+        MaxRetries: 10
+      HTTPClient:
+        DenyList: []
+      DefaultInstance:
+        Features:
+          LoginV2:
+            Required: false
+      FirstInstance:
+        MachineKeyPath: /machinekey/service-account.json
+        Org:
+          Machine:
+            Machine:
+              Username: zitadel-admin-sa
+              Name: Admin
+            MachineKey:
+              Type: 1

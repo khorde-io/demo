@@ -1,0 +1,21 @@
+{
+  "name": "@khorde/demo-plant",
+  "version": "0.1.0",
+  "description": "The Ventos da Serra demo plant: its description, the generated Khorde agent configs and a simulator that drives the REST agents.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/plant.ts"
+  },
+  "scripts": {
+    "gen": "node src/gen.ts",
+    "sim": "node src/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

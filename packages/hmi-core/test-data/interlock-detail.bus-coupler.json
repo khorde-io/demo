@@ -1,0 +1,28 @@
+{
+  "_note": "Real commandInterlockDetail response from the local demo hub (2026-10-25): vds-substation / vds.sub.mv.bc.cb / pos.close, both incomers closed, so the coupler is blocked.",
+  "agent": "vds-substation",
+  "equipment": "vds.sub.mv.bc.cb",
+  "name": "pos.close",
+  "hasInterlock": true,
+  "key": "sub_mv_bc_cb_close",
+  "description": "Close the bus coupler only with both disconnectors closed and one incomer open (no transformer paralleling)",
+  "outcome": "BLOCK",
+  "graph": {
+    "and": [
+      { "ref_group": { "key": "sub_mv_bc_cb_remote", "expression": { "eq": ["vds.sub.mv.bc.cb::remote_local", 1] } } },
+      { "eq": ["vds.sub.mv.bc.ds_a::pos", 1] },
+      { "eq": ["vds.sub.mv.bc.ds_b::pos", 1] },
+      { "or": [{ "eq": ["vds.sub.mv.a.tr1.cb::pos", 0] }, { "eq": ["vds.sub.mv.b.tr2.cb::pos", 0] }] }
+    ]
+  },
+  "nodeStates": [
+    { "path": "$", "state": "BLOCK" },
+    { "path": "$.and.0", "state": "PERMIT" },
+    { "path": "$.and.0.ref:sub_mv_bc_cb_remote", "state": "PERMIT" },
+    { "path": "$.and.1", "state": "PERMIT" },
+    { "path": "$.and.2", "state": "PERMIT" },
+    { "path": "$.and.3", "state": "BLOCK" },
+    { "path": "$.and.3.or.0", "state": "BLOCK" },
+    { "path": "$.and.3.or.1", "state": "BLOCK" }
+  ]
+}

@@ -1,0 +1,21 @@
+# Hub config from the khorde.io quickstart ("Run the Hub locally"), with the
+# IdP on :9311 so it can run next to another local stack.
+bind_address: 0.0.0.0
+port: 8085
+# URL the IdP uses to reach the Hub.
+external_url: http://hub:8085
+# Origin opened in a browser (OIDC redirect URIs).
+public_url: http://localhost:8085
+tsdb:
+  ip: questdb
+  port: 8812
+  username: admin
+  password: quest
+db:
+  addr: postgres
+  port: 5432
+  username: postgres
+  password: postgres
+zitadel:
+  url: http://auth.localhost:9311
+  service_account_file: /machinekey/service-account.json

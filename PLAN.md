@@ -68,8 +68,10 @@ demo/
 ├─ apps/
 │  └─ demo-electrical/   the customer layer (screens, menus, faceplates, plant model)
 ├─ sim/
-│  ├─ site-config/       agent config (measurements, alarms, commands, interlocks) for the demo plant
-│  └─ simulator/         Node script driving the rest-agent: physics-lite plant + command webhook
+│  ├─ src/plant.ts       plant description (topology, points, alarms, commands, interlocks)
+│  ├─ site-config/       generated agent config for the demo plant
+│  ├─ src/sim/           simulator driving the rest-agents: physics-lite plant + command webhook
+│  └─ docker-compose.yaml  rest-agents + simulator
 └─ docs/                 "Build your own HMI with the Khorde libs" guide
 ```
 
@@ -188,7 +190,7 @@ The same build can target any backend, so the URLs are not compiled in. At start
 
 ### 6.1 Demo plant (fictional)
 
-**"Ventos da Serra" (VDS) wind complex, 108 MW.** 24 turbines × 4.5 MW on 4 collector feeders of 6 turbines, and a 34.5/138 kV step-up substation with 2 main transformers and a split 34.5 kV bus with a bus coupler. About 490 measurements, 200 alarms and 100 commands.
+**"Ventos da Serra" (VDS) wind complex, 108 MW.** 24 turbines × 4.5 MW on 4 collector feeders of 6 turbines, and a 34.5/138 kV step-up substation with 2 main transformers and a split 34.5 kV bus with a bus coupler. About 450 measurements, 160 alarms, 160 commands and 95 interlocks, split over two REST agents (`vds-substation`, `vds-windfarm`).
 
 ```
                  Grid ── 138 kV line L1
@@ -217,11 +219,11 @@ The same build can target any backend, so the URLs are not compiled in. At start
 
 **Naming** is hierarchical, `<site>.<area>.<bay>.<device>`, because subscriptions and alarm areas filter by dotted prefix:
 - `vds.sub.hv.l1.cb`, `vds.sub.hv.tr1.cb`, `vds.sub.tr1` (the transformer itself), `vds.sub.mv.a.tr1.cb` (incomer), `vds.sub.mv.a.f1.cb`, `vds.sub.mv.a.f1.es`, `vds.sub.mv.bc.cb`
-- `vds.wf.f1.t01` … `vds.wf.f4.t06`
+- `vds.wf.f1.t01` … `vds.wf.f4.t24` (turbines are numbered across the farm: F1 has T01–T06, F2 T07–T12…)
 - Example subscriptions: whole substation `vds.sub.>`, bus A `vds.sub.mv.a.>`, one feeder's turbines `vds.wf.f1.>`, every turbine's power `vds.wf.*.*.p_kw`.
 - Alarm areas follow the same tree (`vds.sub.tr1`, `vds.wf.f1`).
 
-**The turbine count is configurable.** One plant description file (`plant/plant.yaml`) holds the topology and `turbinesPerFeeder` (default 6). A small generator turns it into:
+**The turbine count is configurable.** One plant description (`sim/src/plant.ts`, TypeScript so the generator and the simulator share its types) holds the topology and `turbinesPerFeeder` (default 6). A small generator turns it into:
 - the agent config (measurements, alarms, commands, interlocks),
 - the simulator's model,
 - the demo's equipment list, its wind farm layout and the English equipment names in the dictionary.
@@ -244,7 +246,7 @@ The wind farm screen lays out turbine tiles from that list, so changing the coun
 
 ### 6.3 What lives in the customer layer
 
-- `plant/`: `plant.yaml` and the files generated from it (equipment list, wind farm layout). Bindings stay in one place.
+- `@khorde/demo-plant` (`sim/src/plant.ts`): the plant description and what is generated from it (equipment list, wind farm layout). Bindings stay in one place.
 - `screens/`: TSX screens composed from lib symbols (`<BoundBreaker eq="vds.sub.mv.a.f1.cb" />`).
 - `faceplates/`: project-specific faceplates built on the lib `Faceplate` frame.
 - `navigation.ts`: the menu tree (L1 to L4).
@@ -255,12 +257,12 @@ TSX composition is the v1 choice because it is the clearest reference for develo
 
 ## 7. Simulation (makes the demo alive)
 
-- `sim/site-config`: the agent config YAML (measurements, alarms, commands, interlocks), **generated from `plant.yaml`** and validated against `schemas.khorde.io/v1/agent-config.json`.
-- `sim/simulator`: a Node service that
+- `sim/site-config`: the agent config YAML (measurements, alarms, commands, interlocks), **generated from `sim/src/plant.ts`** and validated against `schemas.khorde.io/v1/agent-config.json`.
+- `sim/src/sim`: a Node service that
   - generates wind (a slow random walk with gusts), turbine power from a power curve, and feeder and transformer power flows, and pushes them to the **rest-agent** `/batch` about every 1 s;
   - receives commands through the rest-agent **webhook** and applies them with a simple topology model: opening a breaker de-energizes downstream, so power goes to 0, which triggers alarms. Closing the bus coupler moves bus A onto TR2, and an overloaded transformer heats up;
   - supports scripted scenarios: **TR1 trip and recovery through the bus coupler**, transformer oil temperature excursion (HH alarm), feeder overcurrent trip, turbine fault, comms loss (bad quality).
-- A `docker-compose` that adds the rest-agent and the simulator to the local hub from `scada-deploy/samples/site`.
+- `sim/docker-compose.yaml`: one rest-agent per agent plus the simulator, next to the local hub from `scada-deploy/samples/site`. Setup steps are in `sim/README.md`.
 
 ## 8. Phases
 
@@ -277,11 +279,12 @@ TSX composition is the v1 choice because it is the clearest reference for develo
 
 ## 9. Open questions
 
-1. **Interlock node paths** (an example will come from the dev hub): `commandInterlockDetail.nodeStates[].path` format. The core assumes dot-separated child indices from the root (`""` root, `"0"` first child, `"0.1"` its second child), tolerating a `root` prefix and `/` separators. Is that the format? Does `graph` hold the expression as configured, and are `ref`s expanded?
+1. **Interlock node paths**: answered by the local hub (fixture in `packages/hmi-core/test-data/interlock-detail.bus-coupler.json`). Paths are JSON-path-like: `$` is the root, then `.<op>.<index>` per level (`$.and.3.or.0`), and a referenced interlock adds `.ref:<key>` (`$.and.0.ref:sub_mv_bc_cb_remote`). In `graph`, a `ref` is expanded to `{ ref_group: { key, expression } }`. States are `PERMIT` / `BLOCK`. **The core's path parser assumed dot-separated indices and must be updated in phase 4.**
 
 ### Backend dependencies
 
-- **History filter by path with wildcards**: the plan assumes `MeasFilter.name` takes a full `equipment.name` path with `*` / `>`. Until the backend supports it, the mock backend implements it so trends can be built and tested.
+- **History filter**: checked against the hub. `MeasFilter.name` is a regex on the point **name** only (`name ~ '<regex>'`), so it can't select by equipment and doesn't take `*` / `>` paths; `TimestampFilter` is `{ from, to }`. The backend will change to the planned behaviour (full `equipment.name` path with `*` / `>`); until then the history service sends an anchored name regex (`^p_mw$`) and filters equipment on the client, behind the same interface so only the query building changes. The value is put into the SQL unescaped, so a quote in it breaks (or injects into) the query; reported to the backend.
+- **Alarm acknowledge role**: the hub has a `ScadaAlarmAck` role besides `ScadaViewer`, `ScadaOperator` and `ScadaInterlockBypass`; ack buttons should check it.
 - **Alarm list subscription** (future): a subscription that sends the current active list when it starts, then diffs. It would replace the `activeAlm` + `almSubscribe` combination and the client-side active rule; only the `alarms` store changes.
 - **History pagination**: none today. The client caps and chunks ranges; if pagination is added later, only the history service changes.
 

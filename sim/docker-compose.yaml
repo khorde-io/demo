@@ -1,0 +1,79 @@
+# Ventos da Serra demo plant against a local Khorde hub.
+#
+#   agent-substation  REST agent for the "vds-substation" agent  (host :9091)
+#   agent-windfarm    REST agent for the "vds-windfarm" agent    (host :9092)
+#   simulator         plant model; pushes values to both agents and serves
+#                     their command webhook                      (host :8091)
+#
+# The hub (../hub: broker :4223, auth :9311) runs on the host. Put each agent's
+# service-account key in ./keys before starting (see README.md).
+#
+#   docker compose up -d
+#   curl -X POST localhost:8091/scenario/tr1-trip
+
+x-agent: &agent
+  image: khorde/rest-agent:latest
+  restart: unless-stopped
+  extra_hosts:
+    # The hub runs on the host machine.
+    - "host.docker.internal:host-gateway"
+    - "auth.localhost:host-gateway"
+
+services:
+  agent-substation:
+    <<: *agent
+    ports:
+      - "9091:9090"
+    volumes:
+      - type: bind
+        source: ./agents/substation.yaml
+        target: /opt/agent/config.yaml # this target path is mandatory
+        read_only: true
+      - type: bind
+        source: ./keys/vds-substation.json
+        target: /opt/agent/service-user.json
+        read_only: true
+
+  agent-windfarm:
+    <<: *agent
+    ports:
+      - "9092:9090"
+    volumes:
+      - type: bind
+        source: ./agents/windfarm.yaml
+        target: /opt/agent/config.yaml
+        read_only: true
+      - type: bind
+        source: ./keys/vds-windfarm.json
+        target: /opt/agent/service-user.json
+        read_only: true
+
+  simulator:
+    image: node:24-alpine
+    restart: unless-stopped
+    working_dir: /sim
+    # Only Node built-ins are used at runtime, so no install step is needed.
+    command: ["node", "src/main.ts"]
+    ports:
+      - "8091:8091"
+    volumes:
+      - type: bind
+        source: ./package.json # "type": "module"
+        target: /sim/package.json
+        read_only: true
+      - type: bind
+        source: ./src
+        target: /sim/src
+        read_only: true
+    environment:
+      SUBSTATION_AGENT_URL: http://agent-substation:9090
+      WINDFARM_AGENT_URL: http://agent-windfarm:9090
+      PORT: "8091"
+      TICK_MS: "1000"
+      # Must match the config uploaded to the hub (npm run gen -w @khorde/demo-plant).
+      TURBINES_PER_FEEDER: "${TURBINES_PER_FEEDER:-6}"
+      SCENARIO: "${SCENARIO:-showcase}"
+      THERMAL_SPEED: "${THERMAL_SPEED:-10}"
+    depends_on:
+      - agent-substation
+      - agent-windfarm

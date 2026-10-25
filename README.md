@@ -12,6 +12,7 @@ design.
 | `packages/hmi-core` | `@khorde/hmi-core`: framework-agnostic core (auth, transport, points, alarms, commands…). |
 | `packages/hmi-react` | `@khorde/hmi-react`: React hooks, application shell, widgets and symbols. |
 | `apps/demo-electrical` | The customer layer: screens, faceplates and menus for the demo plant. |
+| `sim` | `@khorde/demo-plant`: the demo plant description, its generated agent config, and the simulator with its Docker setup. See [sim/README.md](sim/README.md). |
 
 ## Getting started
 

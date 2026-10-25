@@ -1,0 +1,1666 @@
+{
+  "$defs": {
+    "AgentCommand_for_ProtocolCommandDriver_for_Iec104CommandAddress": {
+      "description": "Authored / runtime command definition.",
+      "properties": {
+        "driver": {
+          "$ref": "#/$defs/ProtocolCommandDriver_for_Iec104CommandAddress"
+        },
+        "equipment": {
+          "type": "string"
+        },
+        "interlock": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InterlockRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "equipment",
+        "driver"
+      ],
+      "type": "object"
+    },
+    "AgentCommand_for_ProtocolCommandDriver_for_Iec61850CommandAddress": {
+      "description": "Authored / runtime command definition.",
+      "properties": {
+        "driver": {
+          "$ref": "#/$defs/ProtocolCommandDriver_for_Iec61850CommandAddress"
+        },
+        "equipment": {
+          "type": "string"
+        },
+        "interlock": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InterlockRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "equipment",
+        "driver"
+      ],
+      "type": "object"
+    },
+    "AgentCommand_for_ProtocolCommandDriver_for_RestCommandAddress": {
+      "description": "Authored / runtime command definition.",
+      "properties": {
+        "driver": {
+          "$ref": "#/$defs/ProtocolCommandDriver_for_RestCommandAddress"
+        },
+        "equipment": {
+          "type": "string"
+        },
+        "interlock": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InterlockRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "equipment",
+        "driver"
+      ],
+      "type": "object"
+    },
+    "AlarmSchema": {
+      "description": "Schema for configuring an alarm",
+      "oneOf": [
+        {
+          "description": "Digital alarm",
+          "properties": {
+            "area": {
+              "description": "Area of the alarm",
+              "type": "string"
+            },
+            "id": {
+              "description": "ID of the alarm. Default is the name of the alarm",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "description": "Alarm name",
+              "type": "string"
+            },
+            "reset": {
+              "description": "Reset value",
+              "format": "int32",
+              "type": "integer"
+            },
+            "set": {
+              "description": "Set value",
+              "format": "int32",
+              "type": "integer"
+            },
+            "severity": {
+              "$ref": "#/$defs/AlarmSeverity",
+              "description": "Severity value"
+            },
+            "type": {
+              "const": "digital",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "name",
+            "area",
+            "set",
+            "reset",
+            "severity"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Discrete alarm",
+          "properties": {
+            "area": {
+              "description": "Area of the alarm",
+              "type": "string"
+            },
+            "conditions": {
+              "description": "Conditions of the alarm",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              },
+              "type": "array"
+            },
+            "name": {
+              "description": "Alarm name",
+              "type": "string"
+            },
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "name",
+            "area",
+            "conditions"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analog limit alarm",
+          "properties": {
+            "area": {
+              "description": "Area of the alarm",
+              "type": "string"
+            },
+            "conditions": {
+              "$ref": "#/$defs/AnalogConditions",
+              "description": "Conditions of the alarm"
+            },
+            "name": {
+              "description": "Alarm name",
+              "type": "string"
+            },
+            "type": {
+              "const": "analog",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "name",
+            "area",
+            "conditions"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "meas": {
+          "description": "Measurement that triggers the alarm. The format is \"equipment::name\"",
+          "type": "string"
+        }
+      },
+      "required": [
+        "meas"
+      ],
+      "type": "object"
+    },
+    "AlarmSeverity": {
+      "description": "Severity of the alarm",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "type": "string"
+    },
+    "AlarmState": {
+      "description": "State of the alarm",
+      "enum": [
+        "Set",
+        "Reset",
+        "Event"
+      ],
+      "type": "string"
+    },
+    "AnalogCondition": {
+      "description": "Condition of the analog alarm",
+      "properties": {
+        "deadband": {
+          "default": 0.0,
+          "description": "Hysteresis applied when returning to normal.",
+          "format": "double",
+          "type": "number"
+        },
+        "severity": {
+          "$ref": "#/$defs/AlarmSeverity",
+          "description": "Severity of the condition"
+        },
+        "value": {
+          "description": "Value of the condition",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "AnalogConditions": {
+      "description": "Conditions of the analog alarm",
+      "properties": {
+        "high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalogCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "High condition"
+        },
+        "high_high": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalogCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "High high condition"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalogCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Low condition"
+        },
+        "low_low": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalogCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Low low condition"
+        }
+      },
+      "type": "object"
+    },
+    "AnalogicalConversion": {
+      "oneOf": [
+        {
+          "properties": {
+            "factor": {
+              "format": "double",
+              "type": "number"
+            },
+            "offset": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": {
+              "const": "linear",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "factor",
+            "offset"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "interval": {
+              "description": "Half-open intervals `[from, to)` mapped to `value`.",
+              "items": {
+                "$ref": "#/$defs/IntervalEntryWire_for_double"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "interval",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "interval"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Condition": {
+      "description": "Condition of a discrete alarm, also used for the single digital condition",
+      "properties": {
+        "id": {
+          "description": "ID of the condition",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/AlarmSeverity",
+          "description": "Severity of the condition"
+        },
+        "state": {
+          "$ref": "#/$defs/AlarmState",
+          "description": "`Event` for an edge-only event; other values are tracked as alarm\n Set/Reset."
+        },
+        "value": {
+          "description": "Value of the condition",
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "value",
+        "state",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "DiscreteConversion": {
+      "oneOf": [
+        {
+          "properties": {
+            "factor": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "offset": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "type": {
+              "const": "linear",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "factor",
+            "offset"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "table": {
+              "additionalProperties": {
+                "format": "int32",
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": {
+              "const": "table",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "table"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "interval": {
+              "description": "Half-open intervals `[from, to)` mapped to `value`.",
+              "items": {
+                "$ref": "#/$defs/IntervalEntryWire_for_int32"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "interval",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "interval"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "EquipmentAndName": {
+      "type": "string"
+    },
+    "Iec61850Acquisition": {
+      "description": "How an IEC 61850 measurement is read from the IED.",
+      "oneOf": [
+        {
+          "const": "report_only",
+          "description": "Only accept values from enabled report control datasets.",
+          "type": "string"
+        },
+        {
+          "const": "poll_if_unreported",
+          "description": "Prefer reports; poll with `GetDataValues` if not in any subscribed RCB\n dataset.",
+          "type": "string"
+        },
+        {
+          "const": "poll",
+          "description": "Always poll with `GetDataValues`, even when also covered by a report.",
+          "type": "string"
+        }
+      ]
+    },
+    "Iec61850Check": {
+      "description": "IEC 61850 control `Check` condition bits.",
+      "properties": {
+        "interlock_check": {
+          "default": false,
+          "description": "Require interlock-check before operate.",
+          "type": "boolean"
+        },
+        "synchrocheck": {
+          "default": false,
+          "description": "Require synchrocheck before operate.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Iec61850ControlModel": {
+      "description": "IEC 61850 control model for an authored command.",
+      "oneOf": [
+        {
+          "const": "direct",
+          "description": "Direct operate (`Oper` only).",
+          "type": "string"
+        },
+        {
+          "const": "sbo",
+          "description": "Select-before-operate (`SBOw` then `Oper`) with the same `ctlVal`.",
+          "type": "string"
+        }
+      ]
+    },
+    "Interlock": {
+      "description": "Authored interlock definition keyed by [`InterlockRef::key`].\n\n Lives in user config / DB and is consumed by `validate_interlock_set` and\n [`Interlock::resolved_graph`]. Runtime command evaluation uses\n [`ResolvedInterlock`], not this struct directly.",
+      "properties": {
+        "description": {
+          "description": "Optional human-readable description.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expression": {
+          "$ref": "#/$defs/InterlockNode",
+          "description": "Root expression node."
+        },
+        "key": {
+          "description": "Unique key referenced by [`crate::commands::AgentCommand`].",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "expression"
+      ],
+      "type": "object"
+    },
+    "InterlockNode": {
+      "description": "Authoring expression form (compact JsonLogic-style single-key JSON objects).\n\n References to other interlocks are by key (`Ref`). The runtime form with\n inlined references is [`ResolvedNode`].",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Logical AND of child nodes.",
+          "properties": {
+            "and": {
+              "items": {
+                "$ref": "#/$defs/InterlockNode"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "and"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Logical OR of child nodes.",
+          "properties": {
+            "or": {
+              "items": {
+                "$ref": "#/$defs/InterlockNode"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "or"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Logical NOT of one child.",
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/InterlockNode"
+            }
+          },
+          "required": [
+            "not"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Inline another authored interlock by key (`{\"ref\": \"key\"}`).\n\n This is resolved into [`ResolvedNode::RefGroup`] by\n [`Interlock::resolved_graph`] before runtime evaluation.",
+          "properties": {
+            "ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Equality (integer / discrete paths only; validated at config load).",
+          "properties": {
+            "eq": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/Operand"
+                },
+                {
+                  "$ref": "#/$defs/Operand"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "eq"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Inequality (same rules as [`InterlockNode::Eq`]).",
+          "properties": {
+            "ne": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/Operand"
+                },
+                {
+                  "$ref": "#/$defs/Operand"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "ne"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Greater than.",
+          "properties": {
+            "gt": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/Operand"
+                },
+                {
+                  "$ref": "#/$defs/Operand"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "gt"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Greater than or equal to.",
+          "properties": {
+            "ge": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/Operand"
+                },
+                {
+                  "$ref": "#/$defs/Operand"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "ge"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Less than.",
+          "properties": {
+            "lt": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/Operand"
+                },
+                {
+                  "$ref": "#/$defs/Operand"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "lt"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Less than or equal to.",
+          "properties": {
+            "le": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/Operand"
+                },
+                {
+                  "$ref": "#/$defs/Operand"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "le"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "InterlockRef": {
+      "description": "Typed reference to an [`Interlock`] definition (schema-friendly vs bare\n `String`).",
+      "properties": {
+        "key": {
+          "description": "Must match [`Interlock::key`] in the config `interlocks` list.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "IntervalEntryWire_for_double": {
+      "description": "Wire entry for an interval mapping. `to` is exclusive (same as\n `Range::end`).",
+      "properties": {
+        "from": {
+          "format": "double",
+          "type": "number"
+        },
+        "to": {
+          "format": "double",
+          "type": "number"
+        },
+        "value": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "value"
+      ],
+      "type": "object"
+    },
+    "IntervalEntryWire_for_int32": {
+      "description": "Wire entry for an interval mapping. `to` is exclusive (same as\n `Range::end`).",
+      "properties": {
+        "from": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "to": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "value": {
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MeasurementClientSchema_for_ProtocolDriver_for_Iec104Address": {
+      "description": "Schema for configuring a measurement for the client",
+      "properties": {
+        "driver": {
+          "$ref": "#/$defs/ProtocolDriver_for_Iec104Address",
+          "description": "Protocol-specific driver configuration"
+        },
+        "equipment": {
+          "description": "Equipment name",
+          "type": "string"
+        },
+        "name": {
+          "description": "Measurement name",
+          "type": "string"
+        },
+        "store": {
+          "description": "Flag if this measurement should be stored",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "tags": {
+          "description": "List of tags for searching and grouping measurements",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/MeasurementType",
+          "description": "Measurement type"
+        }
+      },
+      "required": [
+        "name",
+        "equipment",
+        "driver",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MeasurementClientSchema_for_ProtocolDriver_for_Iec61850Address": {
+      "description": "Schema for configuring a measurement for the client",
+      "properties": {
+        "driver": {
+          "$ref": "#/$defs/ProtocolDriver_for_Iec61850Address",
+          "description": "Protocol-specific driver configuration"
+        },
+        "equipment": {
+          "description": "Equipment name",
+          "type": "string"
+        },
+        "name": {
+          "description": "Measurement name",
+          "type": "string"
+        },
+        "store": {
+          "description": "Flag if this measurement should be stored",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "tags": {
+          "description": "List of tags for searching and grouping measurements",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/MeasurementType",
+          "description": "Measurement type"
+        }
+      },
+      "required": [
+        "name",
+        "equipment",
+        "driver",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MeasurementClientSchema_for_ProtocolDriver_for_RestAddress": {
+      "description": "Schema for configuring a measurement for the client",
+      "properties": {
+        "driver": {
+          "$ref": "#/$defs/ProtocolDriver_for_RestAddress",
+          "description": "Protocol-specific driver configuration"
+        },
+        "equipment": {
+          "description": "Equipment name",
+          "type": "string"
+        },
+        "name": {
+          "description": "Measurement name",
+          "type": "string"
+        },
+        "store": {
+          "description": "Flag if this measurement should be stored",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "tags": {
+          "description": "List of tags for searching and grouping measurements",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/MeasurementType",
+          "description": "Measurement type"
+        }
+      },
+      "required": [
+        "name",
+        "equipment",
+        "driver",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MeasurementType": {
+      "description": "Possible types of a measurement",
+      "oneOf": [
+        {
+          "const": "discrete",
+          "description": "Discrete measurement. Usually bool or int values",
+          "type": "string"
+        },
+        {
+          "const": "analogical",
+          "description": "Analogical measurement. Usually for float point values",
+          "type": "string"
+        }
+      ]
+    },
+    "Operand": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EquipmentAndName",
+          "description": "Measurement path `equipment::name` (parsed and validated as\n [`EquipmentAndName`])."
+        },
+        {
+          "description": "Integer constant.",
+          "format": "int64",
+          "type": "integer"
+        },
+        {
+          "description": "Float constant.",
+          "format": "double",
+          "type": "number"
+        }
+      ],
+      "description": "Operand: measurement ref (`equipment::name`), integer constant, or float\n constant."
+    },
+    "ProtocolCommandDriver_for_Iec104CommandAddress": {
+      "description": "Command driver composed from shared signal behavior and protocol addressing.",
+      "oneOf": [
+        {
+          "description": "Discrete command with a fixed execute value.",
+          "properties": {
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value sent with the execute ASDU / request.",
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analogical command; value comes from the command request at runtime.",
+          "properties": {
+            "type": {
+              "const": "analogical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "common_address": {
+          "description": "Common address (ASDU address field).",
+          "format": "uint16",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ioa": {
+          "description": "Information object address (IOA).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "select_common_address": {
+          "description": "Optional SBO select common address.",
+          "format": "uint16",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "select_ioa": {
+          "description": "Optional SBO select IOA.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "select_type_id": {
+          "description": "Optional SBO select ASDU type id.",
+          "format": "uint8",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "select_value": {
+          "description": "Optional SBO select value.",
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "type_id": {
+          "description": "ASDU type id used on the wire (e.g. 45 for `C_SC_NA_1`).",
+          "format": "uint8",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "common_address",
+        "type_id",
+        "ioa"
+      ],
+      "type": "object"
+    },
+    "ProtocolCommandDriver_for_Iec61850CommandAddress": {
+      "description": "Command driver composed from shared signal behavior and protocol addressing.",
+      "oneOf": [
+        {
+          "description": "Discrete command with a fixed execute value.",
+          "properties": {
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value sent with the execute ASDU / request.",
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analogical command; value comes from the command request at runtime.",
+          "properties": {
+            "type": {
+              "const": "analogical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "check": {
+          "$ref": "#/$defs/Iec61850Check",
+          "default": {
+            "interlock_check": false,
+            "synchrocheck": false
+          },
+          "description": "Default `Check` condition bits for the control."
+        },
+        "control_model": {
+          "$ref": "#/$defs/Iec61850ControlModel",
+          "description": "Whether to Select (`SBOw`) before Operate (`Oper`)."
+        },
+        "ied": {
+          "description": "User-chosen IED name; must match a key in the agent's IED map.",
+          "type": "string"
+        },
+        "reference": {
+          "description": "MMS-style control object reference including FC, e.g.\n `CTRL/CSWI1$CO$Pos`.\n\n The select/operate value comes from [`crate::commands::CommandType`].",
+          "type": "string"
+        },
+        "test": {
+          "default": false,
+          "description": "When true, the control is issued with the IEC 61850 `Test` flag set.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ied",
+        "reference",
+        "control_model"
+      ],
+      "type": "object"
+    },
+    "ProtocolCommandDriver_for_RestCommandAddress": {
+      "description": "Command driver composed from shared signal behavior and protocol addressing.",
+      "oneOf": [
+        {
+          "description": "Discrete command with a fixed execute value.",
+          "properties": {
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value sent with the execute ASDU / request.",
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analogical command; value comes from the command request at runtime.",
+          "properties": {
+            "type": {
+              "const": "analogical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "path": {
+          "description": "Resource path / join key used when issuing the command.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "ProtocolDriver_for_Iec104Address": {
+      "description": "A measurement driver composed from shared signal behavior and\n protocol-specific addressing.",
+      "oneOf": [
+        {
+          "description": "Digital (boolean-like) measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DiscreteConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "digital",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Discrete measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DiscreteConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analogical measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AnalogicalConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "analogical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "common_address": {
+          "description": "Common address (ASDU address field).",
+          "format": "uint16",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ioa": {
+          "description": "Information object address (IOA).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type_id": {
+          "description": "Information type tag used in the join key (e.g. `SP`, `DP`, `MEf`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "common_address",
+        "type_id",
+        "ioa"
+      ],
+      "type": "object"
+    },
+    "ProtocolDriver_for_Iec61850Address": {
+      "description": "A measurement driver composed from shared signal behavior and\n protocol-specific addressing.",
+      "oneOf": [
+        {
+          "description": "Digital (boolean-like) measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DiscreteConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "digital",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Discrete measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DiscreteConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analogical measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AnalogicalConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "analogical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "acquisition": {
+          "$ref": "#/$defs/Iec61850Acquisition",
+          "default": "report_only",
+          "description": "How this measurement is acquired from the IED."
+        },
+        "ied": {
+          "description": "User-chosen IED name; must match a key in the agent's IED map.",
+          "type": "string"
+        },
+        "reference": {
+          "description": "MMS-style object reference including FC, e.g. `LD0/MMXU1$MX$TotW$mag$f`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ied",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "ProtocolDriver_for_RestAddress": {
+      "description": "A measurement driver composed from shared signal behavior and\n protocol-specific addressing.",
+      "oneOf": [
+        {
+          "description": "Digital (boolean-like) measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DiscreteConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "digital",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Discrete measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DiscreteConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "discrete",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Analogical measurement.",
+          "properties": {
+            "conversion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AnalogicalConversion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional value conversion."
+            },
+            "type": {
+              "const": "analogical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "path": {
+          "description": "Resource path / join key (same string space as other protocols for\n drop-in replacement).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Control-plane POST /config/{agent} body: authored agent config.",
+  "oneOf": [
+    {
+      "description": "Client schema",
+      "oneOf": [
+        {
+          "description": "IEC 60870-5-104 client configuration.",
+          "properties": {
+            "alarms": {
+              "description": "List of all alarms definitions",
+              "items": {
+                "$ref": "#/$defs/AlarmSchema"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "commands": {
+              "description": "List of all commands definitions",
+              "items": {
+                "$ref": "#/$defs/AgentCommand_for_ProtocolCommandDriver_for_Iec104CommandAddress"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "interlocks": {
+              "description": "Command interlock definitions (referenced by\n [`AgentCommand::interlock`]).",
+              "items": {
+                "$ref": "#/$defs/Interlock"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "measurements": {
+              "description": "List of all the measurements definitions",
+              "items": {
+                "$ref": "#/$defs/MeasurementClientSchema_for_ProtocolDriver_for_Iec104Address"
+              },
+              "type": "array"
+            },
+            "protocol": {
+              "const": "iec104",
+              "type": "string"
+            }
+          },
+          "required": [
+            "protocol",
+            "measurements"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "IEC 61850 client configuration.",
+          "properties": {
+            "alarms": {
+              "description": "List of all alarms definitions",
+              "items": {
+                "$ref": "#/$defs/AlarmSchema"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "commands": {
+              "description": "List of all commands definitions",
+              "items": {
+                "$ref": "#/$defs/AgentCommand_for_ProtocolCommandDriver_for_Iec61850CommandAddress"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "interlocks": {
+              "description": "Command interlock definitions (referenced by\n [`AgentCommand::interlock`]).",
+              "items": {
+                "$ref": "#/$defs/Interlock"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "measurements": {
+              "description": "List of all the measurements definitions",
+              "items": {
+                "$ref": "#/$defs/MeasurementClientSchema_for_ProtocolDriver_for_Iec61850Address"
+              },
+              "type": "array"
+            },
+            "protocol": {
+              "const": "iec61850",
+              "type": "string"
+            }
+          },
+          "required": [
+            "protocol",
+            "measurements"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "REST replacement client configuration.",
+          "properties": {
+            "alarms": {
+              "description": "List of all alarms definitions",
+              "items": {
+                "$ref": "#/$defs/AlarmSchema"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "commands": {
+              "description": "List of all commands definitions",
+              "items": {
+                "$ref": "#/$defs/AgentCommand_for_ProtocolCommandDriver_for_RestCommandAddress"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "interlocks": {
+              "description": "Command interlock definitions (referenced by\n [`AgentCommand::interlock`]).",
+              "items": {
+                "$ref": "#/$defs/Interlock"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "measurements": {
+              "description": "List of all the measurements definitions",
+              "items": {
+                "$ref": "#/$defs/MeasurementClientSchema_for_ProtocolDriver_for_RestAddress"
+              },
+              "type": "array"
+            },
+            "protocol": {
+              "const": "rest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "protocol",
+            "measurements"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "client",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    {
+      "description": "Server schema",
+      "oneOf": [
+        {
+          "description": "IEC 60870-5-104 server configuration.",
+          "properties": {
+            "measurements": {
+              "description": "List of all the measurements definitions",
+              "items": {
+                "$ref": "#/$defs/MeasurementClientSchema_for_ProtocolDriver_for_Iec104Address"
+              },
+              "type": "array"
+            },
+            "protocol": {
+              "const": "iec104",
+              "type": "string"
+            }
+          },
+          "required": [
+            "protocol",
+            "measurements"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "server",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "JsonConfigSchema"
+}
