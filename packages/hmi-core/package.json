@@ -6,12 +6,16 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mock": "./src/mock/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@khorde/hmi-theme": "0.1.0"
+    "@khorde/hmi-theme": "0.1.0",
+    "graphql": "16.14.2",
+    "graphql-ws": "6.3.0",
+    "oidc-client-ts": "3.5.0"
   }
 }

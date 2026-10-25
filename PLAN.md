@@ -40,7 +40,8 @@ Out of scope for v1: configuration or engineering tools, a screen editor, mobile
 | Interlock bypass | `bypassInterlock: true` + role `ScadaInterlockBypass` | The backend enforces the role. The UI only offers bypass to users who have it in their token, as a separate, deliberate action with its own confirmation, and shows `FORWARDED_TO_AGENT_INTERLOCK_BYPASSED` in the progress steps. |
 | Health | `agentHeartbeats` / `agentHeartbeatSubscribe`, `siteHeartbeats` / `siteHeartbeatSubscribe` | Footer shows agent health and, for hybrid deployments, the site-to-cloud link. |
 | Discovery | `registeredMeasurements`, `registeredCommands` | In development the app checks that every point and command bound on a screen exists, and warns about typos. |
-| Event log | `alm(filter)` only | There is no global command audit query, so the v1 event log is alarm history (Set / Reset / Event and acks). |
+| Alarm history / event log | `alm(filter)` only | A one-shot query by time range: every alarm change (raised, returned, event, acknowledged). It feeds a dedicated history view, never the live alarm list. There is no global command audit query, so command results are not in it. |
+| Alarm stream | `almSubscribe` | Confirmed: sends every alarm change, including acks. It streams changes, not the list, so the client applies the active-alarm rule itself (see 5.1 `alarms`). |
 
 ## 3. Stack (decided)
 
@@ -50,7 +51,7 @@ Out of scope for v1: configuration or engineering tools, a screen editor, mobile
 - **devenv (Nix)** provides the toolchain (Node 24, npm, TypeScript), so `devenv shell` or direnv gives everyone the same versions.
 - **Plain CSS with custom properties** from `hmi-theme`, plus CSS modules inside components. No CSS-in-JS runtime cost and no Tailwind, so integrators using other frameworks can reuse the theme as-is.
 - **Hand-written SVG** for the symbols; no canvas or diagram engine.
-- **`oidc-client-ts`** for auth and **`graphql-ws`** plus `fetch` for the API. No Apollo or urql: the point store is our cache, and a heavy GraphQL client would hide the API calls the reference should show. Query and type definitions are generated from the schema with **GraphQL Code Generator** (typed documents only).
+- **`oidc-client-ts`** for auth and **`graphql-ws`** plus `fetch` for the API. No Apollo or urql: the point store is our cache, and a heavy GraphQL client would hide the API calls the reference should show. All GraphQL documents live in one file (`hmi-core/src/graphql/documents.ts`) with hand-written result types; a test validates every document against `schema.graphql`, so schema drift fails the build. (GraphQL Code Generator was dropped: for about 20 operations it added more tooling than it saved.)
 - **React Router** for screen navigation, **uPlot** for trends (fast with many points), **Lucide** for icons.
 - **Vitest** + Testing Library for tests, **oxlint** for linting (same as `hmi-starter`), **npm workspaces** for the monorepo.
 
@@ -85,7 +86,7 @@ demo/
 | `auth` | Wraps `oidc-client-ts`: login/logout redirect, callback handling, silent renew, `onTokenChanged`. Parses the Zitadel role claim into `ScadaOperator` / `ScadaViewer` / `ScadaInterlockBypass` and exposes `can(permission)` (`view`, `operate`, `bypassInterlock`). The UI uses it only to hide or disable actions; the backend is the authority. Configured from `{ authority, clientId, projectId, redirectUri }`. |
 | `transport` | One HTTP client and **one** shared `graphql-ws` client per session: lazy connect, retry with backoff, the token re-read on each reconnect, and connection state (`connecting / online / degraded / offline`) for the footer. |
 | `points` | The **point store**. Components ask for `equipment::name`. The store groups what is on screen into as few `measByPaths` subscriptions as possible (prefix wildcards where it can), ref-counted, and re-subscribes when the screen changes. Each subscription first delivers the cached current values, then changes. Values are cached as `{ value, quality, timestamp, stale }`. Because unchanged values are not re-sent, age alone does not mean stale: a point is marked stale when its subscription is down or its agent's heartbeat is offline, and cleared when the subscription re-delivers its values. Updates are batched to `requestAnimationFrame` so a busy plant doesn't re-render per message. |
-| `alarms` | Seeds from `activeAlm`, then live via `almSubscribe`. Exposes a normalized alarm list, counts per priority, area and ack state, and `ack(alarm)` / `ackArea(area)`. Acks go through `almAck(instanceId)`. |
+| `alarms` | The **active alarm list**: seeds from `activeAlm`, then applies each `almSubscribe` change by `instanceId` (subscribing first and buffering, so nothing raised during the initial query is lost). The subscription streams changes, so the store applies the **active-alarm rule** to every change: by default (ISA-18.2) an alarm is listed while active, and after it returns to normal until it is acknowledged; events are listed until acknowledged. The rule is an option (`whileSet` lists only present conditions). Counts per priority and ack state, filters, `ack` / `ackMany` via `almAck(instanceId)`. `loadAlarmHistory(range, filter)` serves the separate history view. |
 | `commands` | The command flow: `select → confirm → request → track`. Checks the operator role, reads the interlock state (`commandInterlockStates`) and, when blocked, the detail tree. Sends the mutation, then polls `requestUpdate` until a final state or a client timeout. Returns a typed result (`success / blocked(interlock) / timeout / error`). |
 | `interlocks` | Interlock state per command, refreshed when an input point changes; parses the `graph` + `nodeStates` into a tree the UI can draw. |
 | `history` | Trend and event history queries, with downsampling and range helpers. |
@@ -93,7 +94,10 @@ demo/
 | `i18n` | Translates every text shown on screen (see 5.4). Framework-agnostic: dictionaries, lookup with fallback, and `Intl` number, date and unit formatting. |
 | `config` | Loads and validates the runtime config (see 5.5). |
 | `model` | Types for `Point`, `Quality`, `Alarm`, `Command`, `Interlock`, and parse/format helpers for `equipment::name`. |
-| `mock` | An in-memory backend with the same interfaces, so the tests and an offline demo run without a hub. |
+| `backend` | The `ScadaBackend` interface: every operation the HMI needs, in HMI types. The GraphQL backend implements it over `transport`; every store depends only on this interface. |
+| `theme` | The theme service: active `data-theme`, remembered per user, limited to the themes the config offers. |
+| `hmi` | `createHmi(config)`: wires all services together for an app. |
+| `mock` | An in-memory `ScadaBackend` (cached values on subscribe, interlock evaluation, request states, alarm instances) plus a static signed-in user, so the tests and an offline demo run without a hub. |
 
 ### 5.2 `@khorde/hmi-theme`
 
@@ -137,7 +141,7 @@ demo/
 - `AnalogValue`: number, unit and quality decoration (bad, stale), with an optional alarm indicator next to it.
 - `AnalogBar`: a moving-pointer bar with normal band and HH/H/L/LL limit marks (the HP "analog indicator"), so operators read *where* a value is, not just its number.
 - `Sparkline` and `TrendChart` (live plus history).
-- `AlarmIndicator` (shape, priority and ack state), `AlarmList` (sort, filter by area and priority, ack), `EventList`.
+- `AlarmIndicator` (shape, priority and ack state), `AlarmList` (the live active list: sort, filter by area and priority, ack), `AlarmHistoryList` (a time range of every alarm change: raised, returned, event, acknowledged and by whom; filter and export, no ack).
 - `Faceplate`: a modal or side-panel frame with tabs (Overview, Control, Alarms, Trend, Info).
 - `CommandDialog`: two-step select/confirm, then the request's progress steps and final result. Disabled with a reason for viewers.
 - `InterlockTree`: draws an interlock expression with each node's live state (permit, block, bad quality), so the operator sees exactly which condition blocks a command.
@@ -154,7 +158,7 @@ demo/
 The backend sends no display text, only identifiers and values: alarm `name`, condition `id`, `state` (`Set` / `Reset` / `Event`), severity, measurement values. **Every text on screen comes from a dictionary in the frontend.**
 
 - **Two dictionary levels**:
-  - The **lib dictionary** (`@khorde/hmi-react`) holds the generic UI strings: buttons, dialogs, the shell, quality labels, command results, alarm states and severities.
+  - The **lib dictionaries** hold the generic strings: `@khorde/hmi-core` has quality labels, alarm states and severities, command results and request steps, interlock terms, connection and theme names; `@khorde/hmi-react` adds buttons, dialogs and the shell.
   - The **project dictionary** (`apps/demo-electrical`) holds the plant texts: equipment names, alarm descriptions per alarm `name` and condition `id`, and state labels per measurement (for example `sub.*.cb::pos`: `0` → "Open", `1` → "Closed", `2` → "Intermediate", `3` → "Fault").
   - The project dictionary can override any lib string.
 - **State labels are mapped by pattern**, so one entry covers every breaker (`*.cb::pos`) and a specific point can still override it.
@@ -233,7 +237,9 @@ The wind farm screen lays out turbine tiles from that list, so changing the coun
 | L2 | **Wind farm layout** | Feeders F1 to F4 with turbine tiles (state, kW, wind), generated from the plant description. |
 | L3 | **Bay detail** | One bay (feeder, incomer, coupler or line): equipment states, protection signals, measurements with analog bars, interlock status. |
 | L3 | **Turbine detail** | Power curve (actual vs theoretical), rotor, nacelle, pitch and yaw, temperatures with limit bars, availability. |
-| L4 | **Alarm list**, **Event log**, **Trends**, **Communications** (agent health) | Diagnostic and analysis screens. |
+| L4 | **Alarm list** | Active alarms only, live: the active-alarm rule applied to the subscription. Ack here. |
+| L4 | **Alarm history** (event log) | Separate screen: every alarm change in a chosen time range, from `alm(filter)`. Read-only. |
+| L4 | **Trends**, **Communications** (agent health) | Diagnostic and analysis screens. |
 | Modal | **Faceplates** | Breaker, disconnector, transformer, turbine, analog point. |
 
 ### 6.3 What lives in the customer layer
@@ -271,11 +277,12 @@ TSX composition is the v1 choice because it is the clearest reference for develo
 
 ## 9. Open questions
 
-None at the moment.
+1. **Interlock node paths** (an example will come from the dev hub): `commandInterlockDetail.nodeStates[].path` format. The core assumes dot-separated child indices from the root (`""` root, `"0"` first child, `"0.1"` its second child), tolerating a `root` prefix and `/` separators. Is that the format? Does `graph` hold the expression as configured, and are `ref`s expanded?
 
 ### Backend dependencies
 
 - **History filter by path with wildcards**: the plan assumes `MeasFilter.name` takes a full `equipment.name` path with `*` / `>`. Until the backend supports it, the mock backend implements it so trends can be built and tested.
+- **Alarm list subscription** (future): a subscription that sends the current active list when it starts, then diffs. It would replace the `activeAlm` + `almSubscribe` combination and the client-side active rule; only the `alarms` store changes.
 - **History pagination**: none today. The client caps and chunks ranges; if pagination is added later, only the history service changes.
 
 ### Decided

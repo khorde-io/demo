@@ -1,3 +1,19 @@
-// Modules land here in phase 3: auth, transport, points, alarms, commands,
-// interlocks, history, agents, i18n, config, theme and the mock backend.
-export {};
+export * from "./model.ts";
+export * from "./paths.ts";
+export * from "./store.ts";
+export * from "./backend.ts";
+export { createTransport, GraphQLRequestError, type Transport, type TransportOptions } from "./graphql/transport.ts";
+export { createGraphQLBackend } from "./graphql/backend.ts";
+export * as documents from "./graphql/documents.ts";
+export * from "./points.ts";
+export * from "./alarms.ts";
+export * from "./agents.ts";
+export * from "./commands.ts";
+export * from "./interlocks.ts";
+export * from "./history.ts";
+export * from "./i18n/i18n.ts";
+export { en as coreMessages } from "./i18n/en.ts";
+export * from "./config.ts";
+export * from "./theme.ts";
+export * from "./auth.ts";
+export * from "./hmi.ts";

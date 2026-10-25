@@ -7,6 +7,7 @@
   },
   "rules": {
     "react/react-in-jsx-scope": "off",
+    "vitest/require-mock-type-parameters": "off",
     "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }]
   },
   "ignorePatterns": ["**/dist/**", ".devenv/**", "node_modules/**"]

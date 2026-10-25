@@ -1,0 +1,65 @@
+/**
+ * English texts for everything the core library names. Other languages are
+ * typed as `Translation<typeof en>`, so a missing key does not compile.
+ */
+export const en = {
+  quality: {
+    good: "Good",
+    bad: "Bad quality",
+    stale: "Not current",
+    noValue: "No value",
+  },
+  alarm: {
+    state: { Set: "Active", Reset: "Returned", Event: "Event" },
+    severity: { high: "High", medium: "Medium", low: "Low" },
+    priority: "Priority {priority}",
+    acked: "Acknowledged",
+    unacked: "Not acknowledged",
+    ackedBy: "Acknowledged by {actor} at {time}",
+  },
+  command: {
+    status: {
+      success: "Command completed",
+      blocked: "Blocked by interlock",
+      denied: "You are not allowed to do this",
+      expired: "Selection expired; select again",
+      timeout: "No confirmation in time",
+      error: "Command failed",
+    },
+    request: {
+      FORWARDED_TO_AGENT: "Forwarded to agent",
+      FORWARDED_TO_AGENT_INTERLOCK_BYPASSED: "Forwarded to agent, interlock bypassed",
+      AGENT_RECEIVED: "Agent received",
+      AGENT_SENT: "Sent to device",
+      REQUEST_SUCCESS: "Success",
+      REQUEST_TIMEOUT: "Device did not respond",
+      REQUEST_ERROR: "Error",
+    },
+  },
+  interlock: {
+    state: { PERMIT: "Permit", BLOCK: "Block", BAD_QUALITY: "Bad quality" },
+    op: {
+      and: "all must permit",
+      or: "one must permit",
+      not: "must not permit",
+      eq: "equals",
+      ne: "differs from",
+      gt: "above",
+      ge: "at or above",
+      lt: "below",
+      le: "at or below",
+    },
+  },
+  connection: {
+    idle: "Not connected",
+    connecting: "Connecting",
+    online: "Online",
+    offline: "Offline",
+  },
+  heartbeat: { online: "Online", offline: "Offline", unknown: "Unknown" },
+  theme: {
+    darkGrey: "Dark grey",
+    rangeGreen: "Range Green",
+    ink: "Ink",
+  },
+} as const;
