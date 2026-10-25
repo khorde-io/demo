@@ -75,6 +75,10 @@ export function powerCurve(windMs: number): number {
   return RATED_KW * ((windMs - 3) / 7.2) ** 1.8;
 }
 
+/** Thermal time constants of the transformers, seconds of plant time (before `thermalSpeed`). */
+export const OIL_TAU_S = 1800;
+export const WINDING_TAU_S = 300;
+
 const SQRT3 = Math.sqrt(3);
 const amps = (mw: number, kv: number) => (kv > 1 ? (Math.abs(mw) * 1000) / (SQRT3 * kv) : 0);
 
@@ -255,13 +259,15 @@ export function createSimulation(plant: Plant, options: SimulationOptions = {}):
       set(`${lv.id}::i_a`, +amps(mw, kv[lv.bus as "a" | "b"]).toFixed(0));
       set(`${hv.id}::i_a`, +amps(mw, hvKv).toFixed(0));
 
-      // Thermal: first-order lag towards a load-dependent target.
+      // Thermal: first-order lags towards load-dependent targets. Oil is slow
+      // (OIL_TAU_S), so gusts barely move it; the winding follows the load faster.
       const load = mva / tr.ratedMva;
       const target = 30 + 48 * load ** 2 + (extraHeat.get(tr.id) ?? 0);
-      const k = Math.min(1, (dt / 180) * thermalSpeed);
-      const oil = get(`${tr.id}::oil_temp`) + (target - get(`${tr.id}::oil_temp`)) * k;
+      const lag = (tau: number) => Math.min(1, (dt / tau) * thermalSpeed);
+      const oil = get(`${tr.id}::oil_temp`) + (target - get(`${tr.id}::oil_temp`)) * lag(OIL_TAU_S);
+      const wdg = get(`${tr.id}::wdg_temp`) + (oil + 14 * load ** 1.6 - get(`${tr.id}::wdg_temp`)) * lag(WINDING_TAU_S);
       set(`${tr.id}::oil_temp`, +oil.toFixed(1));
-      set(`${tr.id}::wdg_temp`, +(oil + 14 * load ** 1.6).toFixed(1));
+      set(`${tr.id}::wdg_temp`, +wdg.toFixed(1));
 
       // Overload protection: above 110 % for 30 s trips the transformer.
       const over = load > 1.1 ? (overloadS.get(tr.id) ?? 0) + dt : 0;
@@ -353,8 +359,10 @@ export function createSimulation(plant: Plant, options: SimulationOptions = {}):
         }
         if (silent) scenarioCommsLoss(silent.id);
         set("vds.sub.mv.a.f2.cb::sf6_low", 1);
-        extraHeat.set("vds.sub.tr2", 30);
-        set("vds.sub.tr2::oil_temp", 78);
+        // TR2 runs warm (a cooling group out): oil 77–86 °C over the wind's hourly swing,
+        // so its high alarm stays active, clear of the reset point and of high-high.
+        extraHeat.set("vds.sub.tr2", 38);
+        set("vds.sub.tr2::oil_temp", 80);
         break;
       }
       case "normal":
@@ -380,7 +388,8 @@ export function createSimulation(plant: Plant, options: SimulationOptions = {}):
         set("vds.sub.tr1::buchholz", 1);
         break;
       case "oil-excursion":
-        extraHeat.set("vds.sub.tr2", 45);
+        // Well past high-high (90 °C) within a few minutes.
+        extraHeat.set("vds.sub.tr2", 58);
         break;
       case "feeder-trip": {
         const f3 = feeders.find((f) => f.id.endsWith(".f3"));

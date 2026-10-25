@@ -281,13 +281,14 @@ export function buildPlant(options: PlantOptions = {}): Plant {
     point(sub, tr, "tap", "discrete", 9, ["tap"]);
     point(sub, tr, "buchholz", "discrete", 0, ["protection"]);
     point(sub, tr, "prv", "discrete", 0, ["protection"]);
+    // Thermal alarms reset 5 °C below their limit, as is usual for transformers.
     limitAlarm(sub, tr, "oil_temp", tr, {
-      high: { value: 75, severity: "medium", deadband: 2 },
-      high_high: { value: 90, severity: "high", deadband: 2 },
+      high: { value: 75, severity: "medium", deadband: 5 },
+      high_high: { value: 90, severity: "high", deadband: 5 },
     });
     limitAlarm(sub, tr, "wdg_temp", tr, {
-      high: { value: 95, severity: "medium", deadband: 2 },
-      high_high: { value: 110, severity: "high", deadband: 2 },
+      high: { value: 95, severity: "medium", deadband: 5 },
+      high_high: { value: 110, severity: "high", deadband: 5 },
     });
     alarm(sub, { type: "digital", name: slug(tr, "buchholz"), area: tr, meas: id(tr, "buchholz"), set: 1, reset: 0, severity: "high" });
     alarm(sub, { type: "digital", name: slug(tr, "prv"), area: tr, meas: id(tr, "prv"), set: 1, reset: 0, severity: "high" });

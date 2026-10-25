@@ -1168,11 +1168,11 @@ vds-substation:
         high:
           value: 75
           severity: medium
-          deadband: 2
+          deadband: 5
         high_high:
           value: 90
           severity: high
-          deadband: 2
+          deadband: 5
     - type: analog
       name: sub_tr1_wdg_temp
       area: vds.sub.tr1
@@ -1181,11 +1181,11 @@ vds-substation:
         high:
           value: 95
           severity: medium
-          deadband: 2
+          deadband: 5
         high_high:
           value: 110
           severity: high
-          deadband: 2
+          deadband: 5
     - type: digital
       name: sub_tr1_buchholz
       area: vds.sub.tr1
@@ -1272,11 +1272,11 @@ vds-substation:
         high:
           value: 75
           severity: medium
-          deadband: 2
+          deadband: 5
         high_high:
           value: 90
           severity: high
-          deadband: 2
+          deadband: 5
     - type: analog
       name: sub_tr2_wdg_temp
       area: vds.sub.tr2
@@ -1285,11 +1285,11 @@ vds-substation:
         high:
           value: 95
           severity: medium
-          deadband: 2
+          deadband: 5
         high_high:
           value: 110
           severity: high
-          deadband: 2
+          deadband: 5
     - type: digital
       name: sub_tr2_buchholz
       area: vds.sub.tr2

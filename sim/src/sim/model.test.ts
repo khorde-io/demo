@@ -111,3 +111,36 @@ describe("simulation", () => {
     expect(sim.samples()).toHaveLength(plant.points.length);
   });
 });
+
+describe("transformer thermals", () => {
+  // The demo runs ten times faster thermally; TR2's showcase alarm must not chatter.
+  const showcase = (seed: number) => {
+    const sim = createSimulation(plant, { seed, thermalSpeed: 10 });
+    sim.scenario("showcase");
+    return sim;
+  };
+
+  it("keeps the showcase TR2 oil above its high reset point and below high-high", () => {
+    for (const seed of [1, 2, 3]) {
+      const sim = showcase(seed);
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let t = 0; t < 7200; t++) {
+        sim.step(1);
+        const oil = sim.get("vds.sub.tr2::oil_temp");
+        lo = Math.min(lo, oil);
+        hi = Math.max(hi, oil);
+      }
+      expect(lo).toBeGreaterThan(75 - 5);
+      expect(hi).toBeLessThan(90);
+    }
+  });
+
+  it("drives TR2 past high-high in the oil excursion", () => {
+    const sim = showcase(1);
+    run(sim, 60);
+    sim.scenario("oil-excursion");
+    run(sim, 600);
+    expect(sim.get("vds.sub.tr2::oil_temp")).toBeGreaterThan(90);
+  });
+});
