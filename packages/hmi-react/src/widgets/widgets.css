@@ -1,0 +1,60 @@
+/* Widgets. Semantic tokens only. */
+
+.kh-alarm-indicator { display: inline-block; vertical-align: middle; flex: none; overflow: visible; }
+
+.kh-value { display: inline-flex; align-items: baseline; gap: 4px; color: var(--text-value); font-family: var(--hmi-font); }
+.kh-value-num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.kh-value--sm .kh-value-num { font-size: var(--hmi-text-sm); }
+.kh-value--md .kh-value-num { font-size: var(--hmi-text-lg); }
+.kh-value--lg .kh-value-num { font-size: var(--hmi-text-xl); }
+.kh-value-unit { color: var(--text-label); font-size: var(--hmi-text-sm); }
+.kh-value--bad .kh-value-num { color: var(--text-label); }
+.kh-value-mark { font-weight: 700; color: var(--text-value); border: 1.5px dashed var(--proc-static); border-radius: 4px; padding: 0 4px; font-size: 12px; align-self: center; }
+.kh-value-stale { align-self: center; }
+.kh-value-stale circle, .kh-value-stale path { fill: none; stroke: var(--text-label); stroke-width: 1.5; }
+.kh-value .kh-alarm-indicator { align-self: center; }
+
+.kh-abar { position: relative; height: 10px; background: var(--proc-track); border-radius: 2px; min-width: 80px; }
+.kh-abar--bad { background: transparent; border: 1px dashed var(--proc-static); box-sizing: border-box; }
+.kh-abar-band { position: absolute; top: 0; bottom: 0; background: var(--proc-band-normal); }
+.kh-abar-lim { position: absolute; top: -2px; width: 2px; height: 14px; margin-left: -1px; background: var(--text-label); }
+.kh-abar-sp { position: absolute; top: -4px; width: 0; height: 0; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--text-value); }
+.kh-abar-ptr { position: absolute; top: -4px; width: 3px; height: 18px; margin-left: -1.5px; background: var(--text-strong); }
+
+.kh-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; box-sizing: border-box; flex: none; }
+.kh-dot--online { background: currentColor; }
+.kh-dot--offline { border: 1.5px solid currentColor; }
+.kh-dot--unknown { border: 1.5px dashed currentColor; }
+
+/* turbine tile */
+.kh-tile {
+  font: inherit;
+  text-align: left;
+  color: var(--text-value);
+  min-height: 92px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--proc-surface-2);
+  border: 1px solid var(--proc-border);
+}
+button.kh-tile { cursor: pointer; }
+button.kh-tile:focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }
+.kh-tile--stopped, .kh-tile--waiting { background: transparent; border: 2px solid var(--proc-static); }
+.kh-tile--waiting { border-width: 1px; }
+.kh-tile--unknown { background: transparent; border: 2px dashed var(--proc-static); }
+.kh-tile--alarm { border-width: 3px; }
+.kh-tile--alarm.kh-tile--p1 { border-color: var(--alarm-p1); }
+.kh-tile--alarm.kh-tile--p2 { border-color: var(--alarm-p2); }
+.kh-tile--alarm.kh-tile--p3 { border-color: var(--alarm-p3); }
+.kh-tile-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.kh-tile-name { font-weight: 600; }
+.kh-tile-state { font-size: 12px; color: var(--text-label); }
+.kh-tile-num { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kh-tile-unit { font-size: 12px; color: var(--text-label); }
+.kh-tile-bar { position: relative; height: 6px; background: var(--proc-track); border-radius: 2px; margin-top: auto; }
+.kh-tile-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--proc-static); border-radius: 2px; }
+.kh-tile-sp { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--text-value); }

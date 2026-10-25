@@ -1,0 +1,74 @@
+/* Symbol library. Only semantic theme tokens; state by shape, colour only for alarms and interlocks. */
+
+.kh-sym { font-family: var(--hmi-font); }
+.kh-sym-hit { fill: transparent; stroke: none; }
+.kh-sym--active { cursor: pointer; outline: none; }
+.kh-sym--active:hover .kh-sym-hit { fill: color-mix(in srgb, var(--text-value) 8%, transparent); }
+.kh-sym--active:focus-visible .kh-sym-hit,
+.kh-sym--selected .kh-sym-hit { stroke: var(--focus-color); stroke-width: 2; stroke-dasharray: 4 3; }
+
+.kh-wire { stroke: var(--proc-line-dead); stroke-width: var(--hmi-stroke-dead, 2px); fill: none; }
+.kh-wire--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-live, 3px); }
+.kh-wire--unknown { stroke: var(--proc-static); stroke-width: var(--hmi-stroke-dead, 2px); stroke-dasharray: 5 4; }
+.kh-bus { stroke: var(--proc-line-dead); stroke-width: 6px; fill: none; }
+.kh-bus--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-bus, 8px); }
+.kh-bus--unknown { stroke: var(--proc-static); stroke-dasharray: 8 6; }
+
+.kh-breaker-body { fill: none; stroke: var(--proc-line-live); stroke-width: 3; }
+.kh-breaker-body--closed { fill: var(--proc-fill-closed); stroke: none; }
+.kh-breaker-mark { stroke: var(--proc-line-live); stroke-width: 3; fill: none; }
+.kh-breaker--unknown .kh-breaker-body { stroke: var(--proc-static); stroke-width: 2; stroke-dasharray: 4 3; }
+.kh-pivot { fill: var(--proc-line-dead); }
+.kh-pivot--live { fill: var(--proc-line-live); }
+.kh-winding { fill: none; }
+.kh-load-head { fill: var(--proc-line-dead); }
+.kh-load-head--live { fill: var(--proc-line-live); }
+.kh-sym-text { fill: var(--text-label); font-size: 12px; font-family: var(--hmi-mono); }
+.kh-sym-text--center { fill: var(--text-value); font-size: 18px; font-weight: 600; font-family: var(--hmi-font); }
+.kh-sym-unknown-mark { fill: var(--text-value); font-weight: 700; font-family: var(--hmi-font); }
+
+/* alarm shapes: colour + shape + number */
+.kh-alarm-shape text { fill: var(--alarm-ink); font-size: 11px; font-weight: 700; font-family: var(--hmi-font); }
+.kh-alarm-shape--p1 polygon, .kh-alarm-shape--p1 rect { fill: var(--alarm-p1); }
+.kh-alarm-shape--p2 polygon, .kh-alarm-shape--p2 rect { fill: var(--alarm-p2); }
+.kh-alarm-shape--p3 polygon, .kh-alarm-shape--p3 rect { fill: var(--alarm-p3); }
+.kh-alarm-shape--outline polygon, .kh-alarm-shape--outline rect { fill: none; stroke-width: 2.5; }
+.kh-alarm-shape--p1.kh-alarm-shape--outline polygon { stroke: var(--alarm-p1); }
+.kh-alarm-shape--p2.kh-alarm-shape--outline polygon { stroke: var(--alarm-p2); }
+.kh-alarm-shape--p3.kh-alarm-shape--outline rect { stroke: var(--alarm-p3); }
+.kh-alarm-shape--p1.kh-alarm-shape--outline text { fill: var(--alarm-p1); }
+.kh-alarm-shape--p2.kh-alarm-shape--outline text { fill: var(--alarm-p2); }
+.kh-alarm-shape--p3.kh-alarm-shape--outline text { fill: var(--alarm-p3); }
+.kh-alarm-ring { fill: none; stroke-width: 1.5; stroke-dasharray: 3 3; }
+.kh-alarm-shape--p1 .kh-alarm-ring { stroke: var(--alarm-p1); }
+.kh-alarm-shape--p2 .kh-alarm-ring { stroke: var(--alarm-p2); }
+.kh-alarm-shape--p3 .kh-alarm-ring { stroke: var(--alarm-p3); }
+/* ISA-18.2: an unacknowledged alarm flashes; reduced motion keeps the ring still. */
+@media (prefers-reduced-motion: no-preference) {
+  .kh-alarm-shape--unacked { animation: kh-flash 1s steps(1, end) infinite; }
+}
+@keyframes kh-flash { 50% { opacity: 0.35; } }
+
+.kh-badge-lock rect { fill: var(--alarm-interlock); }
+.kh-badge-lock path { fill: none; stroke: var(--alarm-interlock); stroke-width: 2; }
+.kh-badge-tag rect { fill: var(--proc-bg); stroke: var(--text-value); stroke-width: 1.5; }
+.kh-badge-tag text { fill: var(--text-value); font-size: 11px; font-weight: 700; }
+
+/* wind turbine: rotor disc on a mast */
+.kh-turbine-mast { fill: none; stroke: var(--proc-line-live); stroke-width: 2.5; }
+.kh-turbine-disc { fill: none; stroke: var(--proc-line-live); stroke-width: 2.5; }
+.kh-turbine-rotor line { stroke: var(--proc-line-live); stroke-width: 2; stroke-linecap: round; }
+.kh-turbine-half { fill: var(--proc-line-live); }
+.kh-turbine--producing .kh-turbine-disc { fill: var(--proc-line-live); }
+.kh-turbine--producing .kh-turbine-rotor line { stroke: var(--proc-bg); stroke-width: 2.5; }
+.kh-turbine--stopped .kh-turbine-mast, .kh-turbine--fault .kh-turbine-mast,
+.kh-turbine--stopped .kh-turbine-disc, .kh-turbine--fault .kh-turbine-disc,
+.kh-turbine--unknown .kh-turbine-mast, .kh-turbine--unknown .kh-turbine-disc { stroke: var(--proc-static); stroke-width: 2; }
+.kh-turbine--stopped .kh-turbine-rotor line, .kh-turbine--fault .kh-turbine-rotor line,
+.kh-turbine--unknown .kh-turbine-rotor line { stroke: var(--proc-static); }
+.kh-turbine--unknown .kh-turbine-mast, .kh-turbine--unknown .kh-turbine-disc, .kh-turbine--unknown .kh-turbine-rotor line { stroke-dasharray: 4 3; }
+
+.kh-wind-dial { fill: none; stroke: var(--proc-border); stroke-width: 2; }
+.kh-wind-cardinal { fill: var(--text-label); font-size: 9px; font-family: var(--hmi-font); }
+.kh-wind-arrow { fill: var(--proc-line-live); }
+.kh-symbol-svg { overflow: visible; }

@@ -6,7 +6,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
-import type { Hmi, I18n, PointId, PointValue, Readable } from "@khorde/hmi-core";
+import type { AlarmSnapshot, ConnectionState, Hmi, I18n, PointId, PointValue, Readable } from "@khorde/hmi-core";
 
 export type HmiServices = Pick<Hmi, "i18n"> & Partial<Pick<Hmi, "backend" | "points" | "auth" | "commands" | "alarms" | "theme">>;
 
@@ -68,4 +68,29 @@ export function usePointValues(ids: readonly PointId[]): ReadonlyMap<PointId, Po
     return cache.current.map;
   };
   return useSyncExternalStore(subscribe, snapshot, snapshot);
+}
+
+/** Live value of one point. */
+export function usePoint(id: PointId): PointValue | undefined {
+  return usePointValues([id]).get(id);
+}
+
+const EMPTY_ALARMS: AlarmSnapshot = {
+  alarms: [],
+  counts: { total: 0, unacked: 0, byPriority: { 1: { total: 0, unacked: 0 }, 2: { total: 0, unacked: 0 }, 3: { total: 0, unacked: 0 } } },
+  loaded: false,
+  error: null,
+};
+const constant = <T,>(value: T): Readable<T> => ({ get: () => value, subscribe: () => () => {} });
+const NO_ALARMS = constant(EMPTY_ALARMS);
+const IDLE_CONNECTION = constant<ConnectionState>("idle");
+
+/** The active alarm list from `<HmiProvider>` (empty without an alarm store). */
+export function useAlarms(): AlarmSnapshot {
+  return useReadable(useHmi().alarms ?? NO_ALARMS);
+}
+
+/** State of the link to the backend. */
+export function useConnection(): ConnectionState {
+  return useReadable(useHmi().backend?.connection ?? IDLE_CONNECTION);
 }

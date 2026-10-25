@@ -2,49 +2,22 @@ body {
   margin: 0;
 }
 
-.scaffold {
-  min-height: 100vh;
-  background: var(--proc-bg);
-}
+html, body, #root { height: 100%; }
 
-.scaffold-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  height: 56px;
-  padding: 0 var(--space-6);
-  background: var(--chrome-bg);
-  color: var(--chrome-text);
-  border-bottom: 1px solid var(--chrome-border);
-}
+.logo-mark { width: 28px; height: 28px; border-radius: 6px; background: var(--chrome-accent); flex: none; }
 
-.scaffold-title {
-  font-size: var(--hmi-text-md);
-  font-weight: var(--weight-semibold);
-  flex: 1 1 auto;
-}
+.footer-theme { display: inline-flex; align-items: center; gap: 6px; }
+.footer-theme select { font: inherit; font-size: 12px; background: var(--chrome-raised); color: var(--chrome-text); border: 1px solid var(--chrome-border); border-radius: 4px; padding: 2px 6px; }
 
-.scaffold-picker {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--chrome-text-muted);
-}
-
-.scaffold-picker select {
-  font: inherit;
-  min-height: var(--hmi-target-min);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--chrome-border);
-  background: var(--chrome-raised);
-  color: var(--chrome-text);
-}
-
-.scaffold-picker select:focus-visible {
-  outline: 3px solid var(--focus-color);
-  outline-offset: 2px;
-}
+.sheet { padding: var(--space-6); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: var(--space-4); color: var(--text-value); }
+.sheet-panel { background: var(--proc-surface); border: 1px solid var(--proc-border); border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.sheet-panel h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-label); }
+.sheet-row { display: flex; flex-wrap: wrap; gap: 16px 20px; align-items: flex-end; }
+.sheet-cell { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 64px; }
+.sheet-cell figcaption { font-size: 12px; color: var(--text-label); }
+.sheet-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.sheet-bars .sheet-cell { align-items: stretch; }
+.sheet-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 
 .bench {
   display: grid;
