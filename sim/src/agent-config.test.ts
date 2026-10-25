@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
-import { agentConfigs, agentConfigYaml } from "./agent-config.ts";
+import { agentConfigs, agentConfigYaml, perfConfigYaml } from "./agent-config.ts";
 import { buildPlant, driverPath, type Expr } from "./plant.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../site-config/agent-config.schema.json", import.meta.url), "utf8"));
@@ -80,5 +80,12 @@ describe("agent config", () => {
   it("matches the committed site-config/vds-agents.yaml (run npm run gen after changing plant.ts)", () => {
     const committed = readFileSync(new URL("../site-config/vds-agents.yaml", import.meta.url), "utf8");
     expect(committed).toBe(agentConfigYaml(plant));
+  });
+
+  it("matches the committed perf variant, which validates too", () => {
+    const committed = readFileSync(new URL("../site-config/vds-agents.perf.yaml", import.meta.url), "utf8");
+    expect(committed).toBe(perfConfigYaml(plant));
+    const perfConfigs = parse(committed) as Record<string, unknown>;
+    for (const [agent, config] of Object.entries(perfConfigs)) expect(validate(config), `${agent}: ${JSON.stringify(validate.errors)}`).toBe(true);
   });
 });

@@ -13,6 +13,7 @@
  */
 
 import { createSimulation, SCENARIOS, type Scenario } from "./sim/model.ts";
+import { createPerfGenerator } from "./perf.ts";
 import { createField } from "./sim/field.ts";
 import { createPublisher } from "./sim/publisher.ts";
 import { createSimServer } from "./sim/server.ts";
@@ -48,8 +49,19 @@ setInterval(() => {
   for (const [agent, pub] of Object.entries(publishers)) void pub.publish(reports.filter((r) => agentOf.get(r.addr) === agent));
 }, 100);
 
+// End-to-end performance points, started and stopped over HTTP (see perf.ts).
+// Their own publisher: a refused or slow perf batch never holds back plant values.
+const perf = createPerfGenerator();
+const perfPublisher = createPublisher({ url: env("WINDFARM_AGENT_URL", "http://agent-windfarm:9090"), maxQueue: 10_000, log });
+setInterval(() => {
+  if (!perf.status()) return perfPublisher.clear();
+  const reports = perf.tick(Date.now());
+  if (reports.length) void perfPublisher.publish(reports);
+}, 20);
+
+
 const port = Number(env("PORT", "8091"));
-createSimServer(sim, log).listen(port, () => {
+createSimServer(sim, log, perf).listen(port, () => {
   log(`Ventos da Serra simulator: ${plant.turbines.length} turbines, scenario "${initial}", webhook on :${port}/webhook`);
   log(`Scenarios: ${SCENARIOS.map((s) => `POST :${port}/scenario/${s}`).join(" · ")}`);
 });

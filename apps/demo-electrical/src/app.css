@@ -210,4 +210,5 @@ button.kpi:hover { border-color: var(--proc-static); }
 .perf-grid { padding: 0 var(--space-6) var(--space-6); display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .perf-cell { background: var(--proc-surface); border: 1px solid var(--proc-border); border-radius: 6px; padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .perf-name { font-family: var(--hmi-mono); font-size: 11px; color: var(--text-label); }
+.perf-problem { color: var(--text-strong); font-weight: 600; }
 .perf-result { grid-template-columns: 110px minmax(0, 1fr) 110px minmax(0, 1fr) 110px minmax(0, 1fr); }

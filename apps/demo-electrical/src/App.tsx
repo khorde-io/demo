@@ -73,7 +73,7 @@ function Frame({ booted }: { booted: Booted }) {
       case "symbols":
         return <SymbolSheet />;
       case "perf":
-        return <PerfBench />;
+        return <PerfBench hubAvailable={!site} simUrl={import.meta.env.VITE_SIM_URL ?? "http://localhost:8091"} />;
       default:
         return <OverviewScreen onNavigate={navigate} />;
     }

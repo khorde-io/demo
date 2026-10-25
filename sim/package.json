@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/plant.ts",
     "./sim": "./src/sim/model.ts",
-    "./field": "./src/sim/field.ts"
+    "./field": "./src/sim/field.ts",
+    "./perf": "./src/perf.ts"
   },
   "scripts": {
     "gen": "node src/gen.ts",

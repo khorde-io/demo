@@ -36,6 +36,18 @@
         "cd apps/demo-electrical && VITE_HMI_BACKEND=mock npx vite build --outDir dist-mock --emptyOutDir && npx vite preview --outDir dist-mock --port 4174 --strictPort"
       ],
       "port": 4174
+    },
+    {
+      "name": "demo-hub-prod",
+      "runtimeExecutable": "devenv",
+      "runtimeArgs": [
+        "shell",
+        "--",
+        "bash",
+        "-c",
+        "cd apps/demo-electrical && npx vite build && npx vite preview --port 5173 --strictPort"
+      ],
+      "port": 5173
     }
   ]
 }

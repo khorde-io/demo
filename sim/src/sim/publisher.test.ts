@@ -31,7 +31,14 @@ describe("publisher", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("keeps what the agent did not accept and sends it with the next reports", async () => {
+  it("drops what the agent refuses instead of retrying it forever", async () => {
+    const refused = setup(404);
+    expect(await refused.pub.publish([report("unknown.v", 1, 1000)])).toBe(0);
+    expect(await refused.pub.publish([report("a.p", 2, 2000)])).toBe(0);
+    expect(refused.bodies[1]).toHaveLength(1);
+  });
+
+  it("keeps what an unreachable or failing agent did not take and sends it with the next reports", async () => {
     const failing = setup(503);
     expect(await failing.pub.publish([report("a.p", 1, 1000)])).toBe(0);
     expect(await failing.pub.publish([report("a.p", 2, 2000)])).toBe(0);

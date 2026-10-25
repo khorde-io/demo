@@ -1,30 +1,50 @@
 /**
  * A development bench for the performance target: N analog points, each
  * updating at a given rate with its own phase, drawn with the library's
- * widgets inside the real shell. It runs on its own mock backend and point
- * store, so it works the same with or without a hub, and reports frame rate,
- * frame gaps, long tasks and React render time.
+ * widgets inside the real shell. Two modes:
+ *
+ * - **UI only**: the values come from a private mock backend in the page, so
+ *   this measures the point store, React and the widgets, nothing else.
+ * - **Through the hub**: the simulator's perf generator posts the values to
+ *   the REST agent, and they reach the page through the hub's GraphQL
+ *   subscription like any screen's. Needs the perf variant of the agent
+ *   config uploaded (`sim/site-config/vds-agents.perf.yaml`).
+ *
+ * It reports frame rate, frame gaps, long tasks, updates that reached the
+ * screen, and the latency from each value's timestamp to the frame it was
+ * drawn in.
  */
 
 import { createPointStore, pointId, type PointId } from "@khorde/hmi-core";
 import { createMockBackend } from "@khorde/hmi-core/mock";
+import { createPerfGenerator, perfEquipment, PERF_POINTS } from "@khorde/demo-plant/perf";
 import { AnalogBar, AnalogValue, HmiProvider, useHmi, usePoint } from "@khorde/hmi-react";
 import { Profiler, memo, useEffect, useMemo, useRef, useState } from "react";
 
 const SIZES = [500, 1000, 2000] as const;
 const RUN_MS = 20_000;
+/** Left out of the statistics: mounting and the first fill are not steady state. */
+const WARMUP_MS = 1_500;
+
+export type BenchMode = "ui" | "hub";
 
 interface Result {
+  mode: BenchMode;
   points: number;
-  updatesPerS: number;
+  hz: number;
+  /** Values the generator produced, per second (UI only; the simulator counts its own). */
+  sentPerS: number | null;
+  /** Point changes that reached the screen, per second. */
+  shownPerS: number;
   fps: number;
-  /** Frame-to-frame gaps, ms. */
   p95Gap: number;
   maxGap: number;
   longTasks: number;
   longTaskMs: number;
-  /** React render time per second of wall time, ms. */
+  /** Value timestamp → frame it was drawn in, ms. */
+  latency: { p50: number; p95: number; max: number } | null;
   renderMsPerS: number;
+  problem: string | null;
 }
 
 const Cell = memo(function Cell({ id, n }: { id: PointId; n: number }) {
@@ -56,9 +76,18 @@ const percentile = (xs: number[], p: number) => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))] as number;
 };
+const round1 = (x: number) => Math.round(x * 10) / 10;
+/** The REST agent's driver path (`perf.p0001.v`) as a point id. */
+const idOfAddr = (addr: string) => pointId(addr.slice(0, addr.lastIndexOf(".")), addr.slice(addr.lastIndexOf(".") + 1));
 
-export function PerfBench() {
+async function sim(simUrl: string, path: string, body: unknown) {
+  const res = await fetch(`${simUrl}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status} ${await res.text()}`);
+}
+
+export function PerfBench({ hubAvailable, simUrl }: { hubAvailable: boolean; simUrl: string }) {
   const outer = useHmi();
+  const [mode, setMode] = useState<BenchMode>("ui");
   const [size, setSize] = useState<number>(1000);
   const [hz, setHz] = useState(1);
   const [running, setRunning] = useState(false);
@@ -66,46 +95,65 @@ export function PerfBench() {
   const [left, setLeft] = useState(0);
   const renderMs = useRef(0);
 
-  const ids = useMemo(() => Array.from({ length: size }, (_, i) => pointId(`perf.p${i}`, "v")), [size]);
-  // The backend and store are private to the bench, so they need no disposing: they go with it.
-  // (Disposing in an effect cleanup would break under React's development double mount.)
-  const services = useMemo(() => {
+  const ids = useMemo(() => Array.from({ length: size }, (_, i) => pointId(perfEquipment(i), "v")), [size]);
+  // UI only: a backend and store private to the bench, which go with it (no disposing needed,
+  // and disposing in an effect cleanup would break under React's development double mount).
+  // Through the hub: the app's own services, so values take the screens' path.
+  const local = useMemo(() => {
     const backend = createMockBackend({ points: ids.map((id) => ({ equipment: id.split("::")[0] as string, name: "v", type: "analogical" as const, value: 50 })) });
-    return { ...outer, backend, points: createPointStore(backend) };
-  }, [ids, outer]);
+    return { backend, points: createPointStore(backend) };
+  }, [ids]);
+  const services = useMemo(() => (mode === "hub" ? outer : { ...outer, ...local }), [mode, outer, local]);
+
+  // Through the hub, one pattern covers every cell, so the store opens one small subscription.
+  useEffect(() => (mode === "hub" ? outer.points?.watch(["perf.>"]) : undefined), [mode, outer]);
 
   useEffect(() => {
     if (!running) return;
-    const { backend } = services;
-    const period = 1000 / hz;
-    // Each point gets its own phase in the period, like field devices.
-    const phase = ids.map(() => Math.random() * period);
-    const level = ids.map(() => 20 + Math.random() * 60);
+    const points = services.points;
+    if (!points) return;
     const start = performance.now();
-    let sent = 0;
-    let lastTick = start;
-    const gen = setInterval(() => {
-      const now = performance.now();
-      ids.forEach((id, i) => {
-        const p = phase[i] as number;
-        // Due if a phase moment of this point fell within (lastTick, now].
-        const due = Math.floor((now - start - p) / period) > Math.floor((lastTick - start - p) / period);
-        if (!due) return;
-        level[i] = Math.max(0, Math.min(100, (level[i] as number) + (Math.random() - 0.5) * 4));
-        backend.publish(id, Number((level[i] as number).toFixed(1)));
-        sent++;
+    const wallStart = Date.now();
+    let problem: string | null = null;
+
+    // The source: in the page, or the simulator through the REST agent and the hub.
+    let sent: number | null = null;
+    let gen: ReturnType<typeof setInterval> | null = null;
+    if (mode === "ui") {
+      const generator = createPerfGenerator({ max: PERF_POINTS });
+      generator.start(ids.length, hz);
+      gen = setInterval(() => {
+        for (const r of generator.tick(Date.now())) local.backend.publish(idOfAddr(r.addr), r.value, { timestamp: new Date(r.at) });
+        sent = generator.status()?.sent ?? 0;
+      }, 20);
+    } else {
+      sim(simUrl, "/perf/start", { points: ids.length, hz }).catch((e: unknown) => {
+        problem = `Could not start the simulator's perf generator at ${simUrl}: ${e instanceof Error ? e.message : String(e)}`;
       });
-      lastTick = now;
-    }, 20);
+    }
+
+    // What reaches the screen: every change the store hands to the cells, and how old it is.
+    let shown = 0;
+    const latencies: number[] = [];
+    const offs = ids.map((id) =>
+      points.subscribe(id, () => {
+        const ts = points.get(id).timestamp;
+        if (!ts || Date.now() - wallStart < WARMUP_MS) return;
+        shown++;
+        if (latencies.length < 200_000) latencies.push(Date.now() - ts.getTime());
+      }),
+    );
 
     const gaps: number[] = [];
     let frames = 0;
     let prev = performance.now();
     let raf = 0;
     const frame = (t: number) => {
-      gaps.push(t - prev);
+      if (t - start > WARMUP_MS) {
+        gaps.push(t - prev);
+        frames++;
+      }
       prev = t;
-      frames++;
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -116,6 +164,7 @@ export function PerfBench() {
     try {
       observer = new PerformanceObserver((list) => {
         for (const e of list.getEntries()) {
+          if (e.startTime - start < WARMUP_MS) continue;
           longTasks++;
           longTaskMs += e.duration;
         }
@@ -125,75 +174,115 @@ export function PerfBench() {
       observer = null; // not supported: reported as 0
     }
 
+    // A page in the background gets almost no frames: such a run measures the browser, not the HMI.
+    let hidden = document.visibilityState === "hidden";
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") hidden = true;
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     renderMs.current = 0;
     const countdown = setInterval(() => setLeft(Math.max(0, Math.ceil((RUN_MS - (performance.now() - start)) / 1000))), 500);
     const stop = setTimeout(() => setRunning(false), RUN_MS);
     return () => {
-      clearInterval(gen);
+      if (gen) clearInterval(gen);
+      if (mode === "hub") void sim(simUrl, "/perf/stop", {}).catch(() => {});
+      for (const off of offs) off();
       clearInterval(countdown);
       clearTimeout(stop);
       cancelAnimationFrame(raf);
       observer?.disconnect();
-      const s = (performance.now() - start) / 1000;
-      // Skip the first second: mounting and the first fill are not steady state.
-      const steady = gaps.slice(60);
+      document.removeEventListener("visibilitychange", onVisibility);
+      const elapsed = (performance.now() - start) / 1000;
+      const steady = elapsed - WARMUP_MS / 1000;
+      if (!problem && mode === "hub" && shown === 0) {
+        problem = "No values arrived. Is the perf variant of the agent config uploaded, and is the simulator running?";
+      }
+      const fps = frames / steady;
+      if (hidden || fps < 20) {
+        const note = "The browser drew few frames, so the page was probably hidden or behind another window: run it again with the page in view.";
+        problem = problem ? `${problem} ${note}` : note;
+      }
       setResult({
+        mode,
         points: ids.length,
-        updatesPerS: Math.round(sent / s),
-        fps: Math.round(frames / s),
-        p95Gap: Math.round(percentile(steady, 95) * 10) / 10,
-        maxGap: Math.round(Math.max(0, ...steady) * 10) / 10,
+        hz,
+        sentPerS: sent === null ? null : Math.round(sent / elapsed),
+        shownPerS: Math.round(shown / steady),
+        fps: Math.round(fps),
+        p95Gap: round1(percentile(gaps, 95)),
+        maxGap: round1(Math.max(0, ...gaps)),
         longTasks,
         longTaskMs: Math.round(longTaskMs),
-        renderMsPerS: Math.round((renderMs.current / s) * 10) / 10,
+        latency: latencies.length ? { p50: Math.round(percentile(latencies, 50)), p95: Math.round(percentile(latencies, 95)), max: Math.round(Math.max(...latencies)) } : null,
+        renderMsPerS: round1(renderMs.current / steady),
+        problem,
       });
     };
-  }, [running, hz, ids, services]);
+  }, [running, mode, hz, ids, services, local, simUrl]);
+
+  const seg = <T,>(label: string, options: readonly { id: T; text: string; disabled?: boolean }[], value: T, set: (v: T) => void) => (
+    <div className="kh-seg" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={String(o.id)} type="button" aria-pressed={value === o.id} disabled={running || o.disabled} onClick={() => set(o.id)}>
+          {o.text}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="page">
       <section className="page-panel page-wide">
         <div className="events-bar">
           <h2 className="eyebrow">Performance bench</h2>
-          <div className="kh-seg" role="group" aria-label="Points">
-            {SIZES.map((n) => (
-              <button key={n} type="button" aria-pressed={size === n} disabled={running} onClick={() => setSize(n)}>
-                {n} points
-              </button>
-            ))}
-          </div>
-          <div className="kh-seg" role="group" aria-label="Rate">
-            {[1, 2].map((r) => (
-              <button key={r} type="button" aria-pressed={hz === r} disabled={running} onClick={() => setHz(r)}>
-                {r} Hz
-              </button>
-            ))}
-          </div>
+          {seg<BenchMode>("Source", [{ id: "ui", text: "UI only" }, { id: "hub", text: "Through the hub", disabled: !hubAvailable }], mode, setMode)}
+          {seg<number>("Points", SIZES.map((n) => ({ id: n, text: `${n} points` })), size, setSize)}
+          {seg<number>("Rate", [{ id: 1, text: "1 Hz" }, { id: 2, text: "2 Hz" }], hz, setHz)}
           <button type="button" className="kh-btn kh-btn--primary" disabled={running} onClick={() => setRunning(true)}>
             {running ? `Running… ${left} s` : `Run ${RUN_MS / 1000} s`}
           </button>
         </div>
         {result && (
-          <dl className="detail-facts perf-result" aria-live="polite">
-            <dt>Points</dt>
-            <dd className="num">{result.points}</dd>
-            <dt>Updates</dt>
-            <dd className="num">{result.updatesPerS} /s</dd>
-            <dt>Frame rate</dt>
-            <dd className="num">{result.fps} fps</dd>
-            <dt>Frame gap</dt>
-            <dd className="num">
-              p95 {result.p95Gap} ms · max {result.maxGap} ms
-            </dd>
-            <dt>Long tasks</dt>
-            <dd className="num">
-              {result.longTasks} ({result.longTaskMs} ms)
-            </dd>
-            <dt>React render</dt>
-            <dd className="num">{import.meta.env.PROD ? "not measured in a production build" : `${result.renderMsPerS} ms per second`}</dd>
-          </dl>
+          <>
+            {result.problem && (
+              <p className="note perf-problem" role="alert">
+                {result.problem}
+              </p>
+            )}
+            <dl className="detail-facts perf-result" aria-live="polite">
+              <dt>Run</dt>
+              <dd className="num">
+                {result.points} × {result.hz} Hz, {result.mode === "ui" ? "UI only" : "through the hub"}
+              </dd>
+              <dt>Updates</dt>
+              <dd className="num">
+                {result.sentPerS !== null ? `${result.sentPerS} /s sent · ` : ""}
+                {result.shownPerS} /s shown
+              </dd>
+              <dt>Latency</dt>
+              <dd className="num">{result.latency ? `p50 ${result.latency.p50} ms · p95 ${result.latency.p95} ms · max ${result.latency.max} ms` : "–"}</dd>
+              <dt>Frame rate</dt>
+              <dd className="num">{result.fps} fps</dd>
+              <dt>Frame gap</dt>
+              <dd className="num">
+                p95 {result.p95Gap} ms · max {result.maxGap} ms
+              </dd>
+              <dt>Long tasks</dt>
+              <dd className="num">
+                {result.longTasks} ({result.longTaskMs} ms)
+              </dd>
+              <dt>React render</dt>
+              <dd className="num">{import.meta.env.PROD ? "not measured in a production build" : `${result.renderMsPerS} ms per second`}</dd>
+            </dl>
+          </>
         )}
-        <p className="note">Each point updates at the chosen rate with its own phase, through the mock backend and a point store like the screens use.</p>
+        <p className="note">
+          {mode === "ui"
+            ? "UI only: values come from a mock backend in this page, through a point store like the screens use."
+            : `Through the hub: the simulator (${simUrl}) posts the values to the wind farm REST agent; they arrive over the hub's GraphQL subscription. Needs sim/site-config/vds-agents.perf.yaml uploaded.`}{" "}
+          Latency runs from each value's timestamp to the frame that drew it. A change shown counts once per frame, however many values arrived.
+        </p>
       </section>
       <HmiProvider hmi={services}>
         <Grid ids={ids} onRender={(ms) => (renderMs.current += ms)} />
