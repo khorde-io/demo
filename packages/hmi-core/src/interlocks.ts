@@ -4,14 +4,14 @@
  *
  * Expression format (agent config): logic nodes `{and: [...]}`, `{or: [...]}`,
  * `{not: expr}`; comparisons `{eq|ne|gt|ge|lt|le: [a, b]}` where each operand is
- * a point (`equipment::name`) or a number; `{ref: "key"}` inlines another
- * interlock.
+ * a point (`equipment::name`) or a number; `{ref: "key"}` uses another
+ * interlock. In `commandInterlockDetail.graph` the hub expands each reference
+ * to `{ref_group: {key, expression}}`.
  *
- * ASSUMPTION (to confirm with the backend): `nodeStates[].path` addresses nodes
- * by child index from the root, dot-separated: "" is the root, "0" its first
- * child, "0.1" that child's second child. `graph` is the expression, optionally
- * wrapped as `{expression: ...}`; a `ref` node may carry the referenced
- * expression inline as `expression`.
+ * Node paths (`nodeStates[].path`), as the hub sends them: `$` is the root, a
+ * child of `and`/`or` adds `.<op>.<index>` (`$.and.3.or.0`), and the expression
+ * of a reference adds `.ref:<key>` (`$.and.0.ref:remote`). The hub's config has
+ * no `not` yet; its child is assumed to add `.not`.
  */
 
 import type { ScadaBackend } from "./backend.ts";
@@ -26,36 +26,49 @@ export type Expression =
   | { and: Expression[] }
   | { or: Expression[] }
   | { not: Expression }
-  | { ref: string; expression?: Expression }
+  | { ref: string }
+  | { ref_group: { key: string; expression: Expression } }
   | { [op in CompareOp]?: [Operand, Operand] };
 
 export const COMPARE_OPS: readonly CompareOp[] = ["eq", "ne", "gt", "ge", "lt", "le"];
 
+/** The comparison that holds exactly when `op` does not. */
+export const NEGATED: Readonly<Record<CompareOp, CompareOp>> = { eq: "ne", ne: "eq", gt: "le", le: "gt", lt: "ge", ge: "lt" };
+
 export type InterlockNode =
   | { kind: "and" | "or" | "not"; path: string; state: NodeState | null; children: InterlockNode[] }
   | { kind: "compare"; path: string; state: NodeState | null; op: CompareOp; operands: [Operand, Operand]; children: [] }
+  /** `children` holds the referenced expression when the graph carries it. */
   | { kind: "ref"; path: string; state: NodeState | null; ref: string; children: InterlockNode[] };
+
+export type CompareNode = Extract<InterlockNode, { kind: "compare" }>;
+
+export const ROOT_PATH = "$";
+const childPath = (path: string, op: "and" | "or", i: number) => `${path}.${op}.${i}`;
+const notPath = (path: string) => `${path}.not`;
+const refPath = (path: string, key: string) => `${path}.ref:${key}`;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-function normalizePath(path: string): string {
-  return path.replace(/^(root|\$)[./]?/, "").replace(/\//g, ".");
-}
-
 /** Builds the display tree for an expression, attaching each node's live state. */
-export function buildTree(expr: unknown, states: ReadonlyMap<string, NodeState> = new Map(), path = ""): InterlockNode | null {
+export function buildTree(expr: unknown, states: ReadonlyMap<string, NodeState> = new Map(), path = ROOT_PATH): InterlockNode | null {
   if (!isObject(expr)) return null;
   const state = states.get(path) ?? null;
-  const child = (e: unknown, i: number) => buildTree(e, states, path === "" ? String(i) : `${path}.${i}`);
-  const children = (list: unknown) =>
-    (Array.isArray(list) ? list : []).map(child).filter((n): n is InterlockNode => n !== null);
+  const list = (items: unknown, op: "and" | "or") =>
+    (Array.isArray(items) ? items : []).map((e, i) => buildTree(e, states, childPath(path, op, i))).filter((n): n is InterlockNode => n !== null);
+  const one = (e: unknown, p: string) => {
+    const n = buildTree(e, states, p);
+    return n ? [n] : [];
+  };
 
-  if ("and" in expr) return { kind: "and", path, state, children: children(expr.and) };
-  if ("or" in expr) return { kind: "or", path, state, children: children(expr.or) };
-  if ("not" in expr) return { kind: "not", path, state, children: children([expr.not]) };
-  if ("ref" in expr && typeof expr.ref === "string") {
-    return { kind: "ref", path, state, ref: expr.ref, children: expr.expression ? children([expr.expression]) : [] };
+  if ("and" in expr) return { kind: "and", path, state, children: list(expr.and, "and") };
+  if ("or" in expr) return { kind: "or", path, state, children: list(expr.or, "or") };
+  if ("not" in expr) return { kind: "not", path, state, children: one(expr.not, notPath(path)) };
+  if ("ref_group" in expr && isObject(expr.ref_group) && typeof expr.ref_group.key === "string") {
+    const key = expr.ref_group.key;
+    return { kind: "ref", path, state, ref: key, children: one(expr.ref_group.expression, refPath(path, key)) };
   }
+  if ("ref" in expr && typeof expr.ref === "string") return { kind: "ref", path, state, ref: expr.ref, children: [] };
   for (const op of COMPARE_OPS) {
     const operands = expr[op];
     if (Array.isArray(operands) && operands.length === 2) {
@@ -67,8 +80,7 @@ export function buildTree(expr: unknown, states: ReadonlyMap<string, NodeState> 
 
 export function treeFromDetail(detail: InterlockDetail): InterlockNode | null {
   const graph = isObject(detail.graph) && "expression" in detail.graph ? detail.graph.expression : detail.graph;
-  const states = new Map(detail.nodeStates.map((n) => [normalizePath(n.path), n.state] as const));
-  return buildTree(graph, states);
+  return buildTree(graph, new Map(detail.nodeStates.map((n) => [n.path, n.state] as const)));
 }
 
 /** Every point an interlock tree reads. */
@@ -77,6 +89,111 @@ export function inputPoints(node: InterlockNode | null): PointId[] {
   const own = node.kind === "compare" ? node.operands.filter((o): o is PointId => typeof o === "string" && o.includes("::")) : [];
   return [...new Set([...own, ...node.children.flatMap(inputPoints)])];
 }
+
+// ── conditions and flow ───────────────────────────────────────────────────
+
+/**
+ * One condition an operator can act on, numbered in reading order. A `not`
+ * around a single comparison is one condition with the comparison negated; a
+ * reference whose expression the graph does not carry is one opaque condition.
+ */
+export interface Condition {
+  n: number;
+  /** Path of the node whose state this condition shows. */
+  path: string;
+  state: NodeState | null;
+  /** The comparison as it must hold (already negated for `not`). */
+  compare: { op: CompareOp; operands: [Operand, Operand] } | null;
+  /** Set when the condition is a `not` folded into its comparison. */
+  negated: boolean;
+  /** Set for an opaque reference. */
+  ref: string | null;
+  /** Keys of the shared interlocks this condition sits in, outermost first. */
+  within: string[];
+}
+
+/** A `not` whose only child is a comparison: shown as the negated comparison. */
+export function foldedNot(node: InterlockNode): CompareNode | null {
+  const child = node.kind === "not" ? node.children[0] : undefined;
+  return child?.kind === "compare" && node.children.length === 1 ? child : null;
+}
+
+export function conditions(tree: InterlockNode | null): Condition[] {
+  const out: Condition[] = [];
+  const visit = (node: InterlockNode, within: string[]) => {
+    const add = (c: Omit<Condition, "n" | "within">) => out.push({ ...c, n: out.length + 1, within });
+    if (node.kind === "compare") return add({ path: node.path, state: node.state, compare: { op: node.op, operands: node.operands }, negated: false, ref: null });
+    const folded = foldedNot(node);
+    if (folded) return add({ path: node.path, state: node.state, compare: { op: NEGATED[folded.op], operands: folded.operands }, negated: true, ref: null });
+    if (node.kind === "ref" && node.children.length === 0) return add({ path: node.path, state: node.state, compare: null, negated: false, ref: node.ref });
+    const inner = node.kind === "ref" ? [...within, node.ref] : within;
+    for (const c of node.children) visit(c, inner);
+  };
+  if (tree) visit(tree, []);
+  return out;
+}
+
+export interface FlowInfo {
+  /** Permission from the request reaches this node. */
+  reached: boolean;
+  /** Permission leaves this node. */
+  passes: boolean;
+  /** False inside an OR branch that another branch already satisfies, or inside a NOT. */
+  needed: boolean;
+  /** Permission arrives here and stops: the conditions to clear first. */
+  stops: boolean;
+}
+
+export interface InterlockFlow {
+  /** An unbroken path joins the request to the end. */
+  allowed: boolean;
+  byPath: ReadonlyMap<string, FlowInfo>;
+  /** Conditions where permission stops, in reading order. */
+  stoppers: string[];
+}
+
+/**
+ * Follows permission through the tree the way the ladder view draws it:
+ * series for AND, parallel branches for OR. The backend decides whether a
+ * command is permitted; this only explains its node states.
+ */
+export function analyzeFlow(tree: InterlockNode | null): InterlockFlow {
+  const byPath = new Map<string, FlowInfo>();
+  const stoppers: string[] = [];
+  const permits = (n: InterlockNode) => n.state === "PERMIT";
+
+  const gate = (node: InterlockNode, reached: boolean, needed: boolean) => {
+    const passes = reached && permits(node);
+    const stops = reached && !passes && needed;
+    byPath.set(node.path, { reached, passes, needed, stops });
+    if (stops) stoppers.push(node.path);
+    return passes;
+  };
+
+  const flow = (node: InterlockNode, reached: boolean, needed: boolean): boolean => {
+    if (node.kind === "compare" || foldedNot(node) || (node.kind === "ref" && node.children.length === 0)) return gate(node, reached, needed);
+    let passes: boolean;
+    if (node.kind === "and") {
+      passes = node.children.reduce((live, c) => flow(c, live, needed), reached);
+    } else if (node.kind === "or") {
+      const branchNeeded = needed && !permits(node);
+      passes = node.children.map((c) => flow(c, reached, branchNeeded)).some(Boolean);
+    } else if (node.kind === "ref") {
+      passes = node.children.reduce((live, c) => flow(c, live, needed), reached);
+    } else {
+      // A NOT around a group: the inside is shown for context; the NOT itself is the gate.
+      for (const c of node.children) flow(c, reached, false);
+      return gate(node, reached, needed);
+    }
+    byPath.set(node.path, { reached, passes, needed, stops: false });
+    return passes;
+  };
+
+  const allowed = tree ? flow(tree, true, true) : false;
+  return { allowed, byPath, stoppers };
+}
+
+// ── live watcher ──────────────────────────────────────────────────────────
 
 export interface InterlockView {
   detail: InterlockDetail | null;
@@ -160,42 +277,60 @@ export function createInterlockWatcher(
   };
 }
 
+// ── evaluation (mock backend and tests) ───────────────────────────────────
+
+/** Replaces each `{ref}` with `{ref_group: {key, expression}}`, as the hub's `graph` does. */
+export function expandRefs(expr: Expression, refs: Readonly<Record<string, Expression>>, seen: readonly string[] = []): Expression {
+  if ("and" in expr && Array.isArray(expr.and)) return { and: expr.and.map((e) => expandRefs(e, refs, seen)) };
+  if ("or" in expr && Array.isArray(expr.or)) return { or: expr.or.map((e) => expandRefs(e, refs, seen)) };
+  if ("not" in expr && expr.not) return { not: expandRefs(expr.not as Expression, refs, seen) };
+  if ("ref" in expr && typeof expr.ref === "string") {
+    const target = refs[expr.ref];
+    if (!target || seen.includes(expr.ref)) return expr;
+    return { ref_group: { key: expr.ref, expression: expandRefs(target, refs, [...seen, expr.ref]) } };
+  }
+  return expr;
+}
+
 /**
- * Evaluates an expression against current values. The HMI itself never decides
- * whether a command is permitted (the backend does); this exists for the mock
- * backend and for tests.
+ * Evaluates an expression against current values, producing node states in the
+ * hub's path format. The HMI itself never decides whether a command is
+ * permitted (the backend does); this exists for the mock backend and for tests.
  */
 export function evaluate(
   expr: Expression,
   read: (id: string) => { value: number | null; good: boolean },
   refs: Readonly<Record<string, Expression>> = {},
-  path = "",
+  path = ROOT_PATH,
   out: { path: string; state: NodeState }[] = [],
 ): { state: NodeState; nodeStates: { path: string; state: NodeState }[] } {
   const record = (state: NodeState) => {
     out.push({ path, state });
     return { state, nodeStates: out };
   };
-  const childPath = (i: number) => (path === "" ? String(i) : `${path}.${i}`);
   const combine = (states: NodeState[], all: boolean): NodeState => {
-    if (all) return states.every((s) => s === "PERMIT") ? "PERMIT" : states.includes("BAD_QUALITY") ? "BAD_QUALITY" : "BLOCK";
+    if (all) return states.includes("BLOCK") ? "BLOCK" : states.includes("BAD_QUALITY") ? "BAD_QUALITY" : "PERMIT";
     return states.includes("PERMIT") ? "PERMIT" : states.includes("BAD_QUALITY") ? "BAD_QUALITY" : "BLOCK";
   };
 
   if ("and" in expr && Array.isArray(expr.and)) {
-    return record(combine(expr.and.map((e, i) => evaluate(e, read, refs, childPath(i), out).state), true));
+    return record(combine(expr.and.map((e, i) => evaluate(e, read, refs, childPath(path, "and", i), out).state), true));
   }
   if ("or" in expr && Array.isArray(expr.or)) {
-    return record(combine(expr.or.map((e, i) => evaluate(e, read, refs, childPath(i), out).state), false));
+    return record(combine(expr.or.map((e, i) => evaluate(e, read, refs, childPath(path, "or", i), out).state), false));
   }
   if ("not" in expr && expr.not) {
-    const s = evaluate(expr.not as Expression, read, refs, childPath(0), out).state;
+    const s = evaluate(expr.not as Expression, read, refs, notPath(path), out).state;
     return record(s === "BAD_QUALITY" ? s : s === "PERMIT" ? "BLOCK" : "PERMIT");
+  }
+  if ("ref_group" in expr && isObject(expr.ref_group)) {
+    const { key, expression } = expr.ref_group;
+    return record(evaluate(expression, read, refs, refPath(path, key), out).state);
   }
   if ("ref" in expr && typeof expr.ref === "string") {
     const target = refs[expr.ref];
     if (!target) return record("BLOCK");
-    return record(evaluate(target, read, refs, childPath(0), out).state);
+    return record(evaluate(target, read, refs, refPath(path, expr.ref), out).state);
   }
   for (const op of COMPARE_OPS) {
     const operands = (expr as Record<string, unknown>)[op];

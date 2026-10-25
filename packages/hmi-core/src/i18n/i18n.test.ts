@@ -13,6 +13,8 @@ const project: Catalog = {
     "vds.sub.mv.bc.cb::pos": { "0": "Coupler open" },
     "**::remote_local": { "0": "Local", "1": "Remote" },
   },
+  points: { "**::v_kv": "Voltage", "vds.sub.hv.**::v_kv": "Line voltage" },
+  units: { "**::v_kv": "kV" },
 };
 
 // Compile-time check: a translation must have every key of the English texts.
@@ -64,6 +66,14 @@ describe("i18n", () => {
     expect(t.stateLabel("vds.sub.f1.cb::remote_local", true)).toBe("Remote");
     expect(t.stateLabel("vds.sub.f1.ds::pos", 1)).toBeNull();
     expect(t.stateLabel("vds.sub.f1.cb::pos", null)).toBeNull();
+  });
+
+  it("names points and their units by pattern, most specific first", () => {
+    const t = i18n();
+    expect(t.pointName("vds.sub.mv.a.f1::v_kv")).toBe("Voltage");
+    expect(t.pointName("vds.sub.hv.l1::v_kv")).toBe("Line voltage");
+    expect(t.unit("vds.sub.hv.l1::v_kv")).toBe("kV");
+    expect(t.pointName("vds.sub.mv.a.f1::p_mw")).toBeNull();
   });
 
   it("writes alarm text by name and condition, with fallbacks", () => {

@@ -7,7 +7,7 @@
 
 import type { CommandRequest, HeartbeatKind, ScadaBackend, Sink } from "../backend.ts";
 import type { ConnectionState } from "../graphql/transport.ts";
-import { evaluate, type Expression } from "../interlocks.ts";
+import { evaluate, expandRefs, type Expression } from "../interlocks.ts";
 import {
   PRIORITY_BY_SEVERITY,
   parsePointId,
@@ -194,11 +194,13 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
       const state: InterlockState = { ...key, hasInterlock: false, outcome: "PERMIT" };
       return { state, detail: { ...state, key: null, description: null, graph: null, nodeStates: [] } };
     }
-    const result = evaluate(lock.expression, read, refs);
+    // The hub sends the graph with references expanded; evaluating that graph gives its paths.
+    const graph = expandRefs(lock.expression, refs);
+    const result = evaluate(graph, read, refs);
     const state: InterlockState = { ...key, hasInterlock: true, outcome: result.state === "PERMIT" ? "PERMIT" : "BLOCK" };
     return {
       state,
-      detail: { ...state, key: cmd.interlock, description: lock.description ?? null, graph: lock.expression, nodeStates: result.nodeStates },
+      detail: { ...state, key: cmd.interlock, description: lock.description ?? null, graph, nodeStates: result.nodeStates },
     };
   };
 

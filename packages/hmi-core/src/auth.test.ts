@@ -34,6 +34,11 @@ describe("roles", () => {
     expect(permissionsFor(new Set([SCADA_ROLES.interlockBypass])).can("bypassInterlock")).toBe(false);
   });
 
+  it("allows acknowledging alarms only with the ack role", () => {
+    expect(permissionsFor(new Set([SCADA_ROLES.operator])).can("ackAlarm")).toBe(false);
+    expect(permissionsFor(new Set([SCADA_ROLES.viewer, SCADA_ROLES.alarmAck])).can("ackAlarm")).toBe(true);
+  });
+
   it("requests the SCADA audience and role scopes", () => {
     expect(requiredScopes("khorde_scada")).toContain("urn:zitadel:iam:org:project:id:khorde_scada:aud");
     expect(requiredScopes("khorde_scada")).toContain("urn:zitadel:iam:org:projects:roles");

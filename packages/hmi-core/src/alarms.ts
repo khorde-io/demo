@@ -10,6 +10,7 @@
  */
 
 import type { ScadaBackend } from "./backend.ts";
+import type { Permissions } from "./commands.ts";
 import type { Alarm, AlarmPriority } from "./model.ts";
 import { matchAny } from "./paths.ts";
 import { writable, type Readable, type Unsubscribe } from "./store.ts";
@@ -49,6 +50,8 @@ export interface AlarmStoreOptions {
   areas?: readonly string[];
   /** Defaults to `untilClearedAndAcked`. */
   isActive?: ActiveRule;
+  /** When given, `ack` refuses without asking the backend if the user may not acknowledge. */
+  permissions?: Permissions;
   now?: () => Date;
 }
 
@@ -170,12 +173,14 @@ export function createAlarmStore(backend: ScadaBackend, options: AlarmStoreOptio
     },
 
     async ack(instanceId) {
+      if (options.permissions && !options.permissions.can("ackAlarm")) return false;
       const ok = await backend.ackAlarm(instanceId);
       if (ok) applyAck(instanceId);
       return ok;
     },
 
     async ackMany(ids) {
+      if (options.permissions && !options.permissions.can("ackAlarm")) return [];
       const results = await Promise.allSettled(ids.map((id) => backend.ackAlarm(id)));
       const done = ids.filter((_, i) => {
         const r = results[i];

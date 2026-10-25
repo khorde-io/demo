@@ -1,6 +1,8 @@
 /** `ScadaBackend` over the Khorde GraphQL API. */
 
 import type { CommandRequest, HeartbeatKind, HistoryFilter, ScadaBackend, TimeRange } from "../backend.ts";
+import { pointPath, type Measurement } from "../model.ts";
+import { matchPath } from "../paths.ts";
 import type {
   CommandKey,
   InterlockDetail,
@@ -28,6 +30,24 @@ function timestampFilter(range: TimeRange) {
   return { from: iso(range.from), to: iso(range.to) };
 }
 
+/**
+ * The hub filters history by a regex on the point name only (`name ~ '…'`);
+ * path wildcards are planned. Until then the name segment of the path becomes
+ * an anchored regex and the equipment part is filtered here. When the backend
+ * takes paths, only `history` below changes: it sends the path as is.
+ */
+export function historyNameFilter(path: string | undefined): string | undefined {
+  if (!path) return undefined;
+  const name = path.split(".").at(-1) ?? "";
+  if (name === "*" || name === ">" || name === "") return undefined;
+  if (!/^[\w-]+$/.test(name)) throw new Error(`History path has an unsupported name segment: ${path}`);
+  return `^${name}$`;
+}
+
+function keepPath(path: string | undefined) {
+  return (m: Measurement) => !path || matchPath(path, pointPath(m.id));
+}
+
 const commandVars = (key: CommandKey) => ({ agent: key.agent, equipment: key.equipment, name: key.name });
 
 export function createGraphQLBackend(transport: Transport): ScadaBackend {
@@ -51,13 +71,13 @@ export function createGraphQLBackend(transport: Transport): ScadaBackend {
     },
 
     async history(type: MeasurementType, filter: HistoryFilter) {
-      const variables = { filter: { name: filter.path, timestamp: timestampFilter(filter) } };
-      if (type === "analogical") {
-        const d = await request<{ histAnalogical: RawMeasurement[] }>(doc.HIST_ANALOGICAL, variables);
-        return d.histAnalogical.map(toMeasurement);
-      }
-      const d = await request<{ histDiscrete: RawMeasurement[] }>(doc.HIST_DISCRETE, variables);
-      return d.histDiscrete.map(toMeasurement);
+      const name = historyNameFilter(filter.path);
+      const variables = { filter: { ...(name ? { name } : {}), timestamp: timestampFilter(filter) } };
+      const raw =
+        type === "analogical"
+          ? (await request<{ histAnalogical: RawMeasurement[] }>(doc.HIST_ANALOGICAL, variables)).histAnalogical
+          : (await request<{ histDiscrete: RawMeasurement[] }>(doc.HIST_DISCRETE, variables)).histDiscrete;
+      return raw.map(toMeasurement).filter(keepPath(filter.path));
     },
 
     async activeAlarms(areas = []) {

@@ -279,7 +279,7 @@ TSX composition is the v1 choice because it is the clearest reference for develo
 
 ## 9. Open questions
 
-1. **Interlock node paths**: answered by the local hub (fixture in `packages/hmi-core/test-data/interlock-detail.bus-coupler.json`). Paths are JSON-path-like: `$` is the root, then `.<op>.<index>` per level (`$.and.3.or.0`), and a referenced interlock adds `.ref:<key>` (`$.and.0.ref:sub_mv_bc_cb_remote`). In `graph`, a `ref` is expanded to `{ ref_group: { key, expression } }`. States are `PERMIT` / `BLOCK`. **The core's path parser assumed dot-separated indices and must be updated in phase 4.**
+1. **Interlock node paths**: answered by the local hub (fixture in `packages/hmi-core/test-data/interlock-detail.bus-coupler.json`). Paths are JSON-path-like: `$` is the root, then `.<op>.<index>` per level (`$.and.3.or.0`), and a referenced interlock adds `.ref:<key>` (`$.and.0.ref:sub_mv_bc_cb_remote`). In `graph`, a `ref` is expanded to `{ ref_group: { key, expression } }`. States are `PERMIT` / `BLOCK`. The core reads this format (phase 4). Still assumed: the child of a `not` adds `.not`, since the hub's config has no `not` yet.
 
 ### Backend dependencies
 

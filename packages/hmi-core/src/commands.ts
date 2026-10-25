@@ -10,7 +10,7 @@
 import type { ScadaBackend } from "./backend.ts";
 import { FINAL_REQUEST_STATES, type CommandKey, type InterlockState, type RequestUpdate } from "./model.ts";
 
-export type Permission = "view" | "operate" | "bypassInterlock";
+export type Permission = "view" | "operate" | "bypassInterlock" | "ackAlarm";
 
 export interface Permissions {
   can(permission: Permission): boolean;

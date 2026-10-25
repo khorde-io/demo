@@ -82,7 +82,7 @@ export function createHmi(options: HmiOptions): Hmi {
     auth,
     backend,
     points,
-    alarms: createAlarmStore(backend),
+    alarms: createAlarmStore(backend, { permissions: auth }),
     commands: createCommandService(backend, { permissions: auth }),
     history: createHistoryService(backend),
     theme,

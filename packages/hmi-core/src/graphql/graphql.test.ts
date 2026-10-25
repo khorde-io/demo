@@ -110,14 +110,24 @@ describe("GraphQL backend", () => {
     expect(calls[1]?.variables).toMatchObject({ value: 2.5, bypassInterlock: true });
   });
 
-  it("passes the history path and range as the filter", async () => {
-    const { t, calls } = fakeTransport({ histAnalogical: [] });
+  it("asks the hub for the point name and keeps only the equipment the path matches", async () => {
+    const row = (equipment: string, name: string) => ({ equipment, name, timestamp: "2026-10-25T01:00:00Z", type: "analogical", value: 1, quality: "good" });
+    const { t, calls } = fakeTransport({
+      histAnalogical: [row("vds.wf.f1.t01", "p_kw"), row("vds.wf.f2.t07", "p_kw"), row("vds.sub.mv.a.f1", "p_kw"), row("vds.wf.met", "p_kw")],
+    });
     const b = createGraphQLBackend(t);
     const from = new Date("2026-10-25T00:00:00Z");
     const to = new Date("2026-10-25T06:00:00Z");
-    await b.history("analogical", { path: "vds.wf.*.*.p_kw", from, to });
-    expect(calls[0]?.variables).toEqual({
-      filter: { name: "vds.wf.*.*.p_kw", timestamp: { from: from.toISOString(), to: to.toISOString() } },
-    });
+    const got = await b.history("analogical", { path: "vds.wf.*.*.p_kw", from, to });
+    expect(calls[0]?.variables).toEqual({ filter: { name: "^p_kw$", timestamp: { from: from.toISOString(), to: to.toISOString() } } });
+    expect(got.map((m) => m.id)).toEqual(["vds.wf.f1.t01::p_kw", "vds.wf.f2.t07::p_kw"]);
+  });
+
+  it("sends no name filter for a trailing wildcard and refuses names that are not plain", async () => {
+    const { t, calls } = fakeTransport({ histDiscrete: [] });
+    const b = createGraphQLBackend(t);
+    await b.history("discrete", { path: "vds.sub.>" });
+    expect(calls[0]?.variables).toEqual({ filter: { timestamp: { from: undefined, to: undefined } } });
+    await expect(b.history("discrete", { path: "vds.sub.x.p'; drop" })).rejects.toThrow("unsupported name segment");
   });
 });

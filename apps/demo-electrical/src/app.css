@@ -46,30 +46,65 @@ body {
   outline-offset: 2px;
 }
 
-.scaffold-tokens {
-  list-style: none;
-  margin: 0;
-  padding: var(--space-6);
+.bench {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 640px) minmax(0, 420px);
+  gap: var(--space-6);
+  justify-content: center;
+  align-items: start;
+  padding: var(--space-6);
+  color: var(--text-value);
+  font-family: var(--hmi-font);
+  font-size: var(--hmi-text-sm);
+}
+@media (max-width: 1120px) {
+  .bench { grid-template-columns: minmax(0, 640px); }
 }
 
-.scaffold-tokens li {
+.bench-faceplate,
+.bench-fields {
+  background: var(--proc-surface);
+  border: 1px solid var(--proc-border);
+  border-radius: 12px;
+  padding: 20px 24px 24px;
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--text-label);
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
-
-.scaffold-tokens code {
-  font-family: var(--hmi-mono);
-  font-size: var(--hmi-text-xs);
-}
-
-.scaffold-swatch {
-  width: 32px;
-  height: 32px;
+.bench-head { display: flex; flex-direction: column; gap: 2px; }
+.bench-head h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.bench-head code, .bench-field code { font-family: var(--hmi-mono); font-size: 12px; color: var(--text-label); overflow-wrap: anywhere; }
+.bench-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-label); }
+.bench-select { display: flex; flex-direction: column; gap: 6px; color: var(--text-label); }
+.bench-select select,
+.bench-analog input {
+  font: inherit;
+  min-height: var(--hmi-target-min);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   border: 1px solid var(--proc-border);
+  background: var(--proc-bg);
+  color: var(--text-value);
 }
+.bench-fields h2 { margin: 0; font-size: 16px; }
+.bench-note { margin: 0; color: var(--text-label); }
+.bench-field { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--proc-border); }
+.bench-field-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bench-quality { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-label); font-size: 13px; }
+.bench-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.bench-choice {
+  font: inherit;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--proc-border);
+  background: var(--proc-bg);
+  color: var(--text-value);
+  cursor: pointer;
+}
+.bench-choice[aria-pressed="true"] { background: var(--proc-line-live); color: var(--alarm-ink); border-color: var(--proc-line-live); font-weight: 600; }
+.bench-analog { display: flex; align-items: center; gap: 8px; }
+.bench-analog input { width: 120px; }
+.bench :focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }

@@ -15,6 +15,7 @@ export const SCADA_ROLES = {
   viewer: "ScadaViewer",
   operator: "ScadaOperator",
   interlockBypass: "ScadaInterlockBypass",
+  alarmAck: "ScadaAlarmAck",
 } as const;
 
 /** Scopes the SCADA API needs on the access token. */
@@ -60,6 +61,8 @@ export function permissionsFor(roles: ReadonlySet<string>): Permissions {
     view: operator || roles.has(SCADA_ROLES.viewer),
     operate: operator,
     bypassInterlock: operator && roles.has(SCADA_ROLES.interlockBypass),
+    // Acknowledging is its own role on the hub, independent of operating.
+    ackAlarm: roles.has(SCADA_ROLES.alarmAck),
   };
   return { can: (p) => table[p] };
 }

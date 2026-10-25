@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@khorde/demo-plant": "0.1.0",
     "@khorde/hmi-core": "0.1.0",
     "@khorde/hmi-react": "0.1.0",
     "@khorde/hmi-theme": "0.1.0",

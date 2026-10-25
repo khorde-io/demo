@@ -8,6 +8,8 @@
  * - `states`: labels for discrete values, by point pattern. `*` matches one
  *   equipment segment, `**` any number; the name may be `*`. The most specific
  *   pattern wins: `{"**.cb::pos": {"0": "Open", "1": "Closed"}}`.
+ * - `points` and `units`: a point's display name and unit, by the same
+ *   patterns: `{"**::v_kv": "Voltage"}`, `{"**::v_kv": "kV"}`.
  *
  * Catalogs are layered: the library's first, the project's after it, so a
  * project can override any library text.
@@ -27,6 +29,8 @@ export interface Catalog {
   messages?: Dictionary;
   equipment?: Record<string, string>;
   states?: Record<string, Record<string, string>>;
+  points?: Record<string, string>;
+  units?: Record<string, string>;
 }
 
 export interface I18nOptions {
@@ -46,6 +50,9 @@ export interface I18n {
   equipmentName(equipment: string): string;
   /** Label for a discrete value of a point, or null when none is defined. */
   stateLabel(id: PointId, value: PointRawValue): string | null;
+  /** Display name of a point (without its equipment), or null when none is defined. */
+  pointName(id: PointId): string | null;
+  unit(id: PointId): string | null;
   alarmText(alarm: Pick<Alarm, "name" | "condition">): string;
   formatNumber(value: number, options?: Intl.NumberFormatOptions): string;
   formatDateTime(value: Date, options?: Intl.DateTimeFormatOptions): string;
@@ -113,6 +120,25 @@ export function createI18n(options: I18nOptions): I18n {
     options.onMissing?.(key, locale.get());
   };
 
+  /** The most specific pattern's value across the layers of the current locale, then the fallback. */
+  const byPattern = (id: string, pick: (c: Catalog) => Record<string, string> | undefined): string | null => {
+    for (const loc of [locale.get(), fallback]) {
+      let bestScore = -1;
+      let best: string | null = null;
+      for (const c of layers(loc)) {
+        for (const [pattern, text] of Object.entries(pick(c) ?? {})) {
+          const score = statePatternScore(pattern, id);
+          if (score > bestScore) {
+            bestScore = score;
+            best = text;
+          }
+        }
+      }
+      if (best !== null) return best;
+    }
+    return null;
+  };
+
   const t = (key: string, params?: Record<string, string | number>) => {
     const text = find((c) => lookup(c.messages, key));
     if (text === undefined) {
@@ -134,24 +160,15 @@ export function createI18n(options: I18nOptions): I18n {
     stateLabel(id, value) {
       if (value === null) return null;
       const v = typeof value === "boolean" ? (value ? "1" : "0") : String(value);
-      for (const loc of [locale.get(), fallback]) {
-        let bestScore = -1;
-        let bestLabel: string | null = null;
-        for (const c of layers(loc)) {
-          for (const [pattern, labels] of Object.entries(c.states ?? {})) {
-            const label = labels[v];
-            if (label === undefined) continue;
-            const score = statePatternScore(pattern, id);
-            if (score > bestScore) {
-              bestScore = score;
-              bestLabel = label;
-            }
-          }
-        }
-        if (bestLabel !== null) return bestLabel;
-      }
-      return null;
+      return byPattern(id, (c) => {
+        const labels: Record<string, string> = {};
+        for (const [pattern, values] of Object.entries(c.states ?? {})) if (values[v] !== undefined) labels[pattern] = values[v];
+        return labels;
+      });
     },
+
+    pointName: (id) => byPattern(id, (c) => c.points),
+    unit: (id) => byPattern(id, (c) => c.units),
 
     alarmText(alarm) {
       const key = `alarms.${alarm.name}.${alarm.condition}`;

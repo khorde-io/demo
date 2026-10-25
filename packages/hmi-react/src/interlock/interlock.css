@@ -1,0 +1,80 @@
+/* Interlock view. Colours come from the HMI theme tokens; ISA-101: grey process,
+   violet only for what blocks, shape and text alongside every colour. */
+
+.kh-ilk {
+  --kh-ilk-tint: color-mix(in srgb, var(--alarm-interlock) 16%, transparent);
+  background: var(--proc-bg);
+  border: 1px solid var(--proc-border);
+  border-radius: var(--hmi-radius, 10px);
+  color: var(--text-value);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.kh-ilk-msg { margin: 0; padding: 16px; color: var(--text-label); }
+.kh-ilk-head { padding: 14px 16px 0; display: flex; flex-direction: column; gap: 4px; }
+.kh-ilk-keyline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.kh-ilk-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-label); }
+.kh-ilk-key { font-family: var(--hmi-mono); font-size: 13px; }
+.kh-ilk-desc { margin: 0; }
+.kh-ilk-pill { margin-left: auto; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; padding: 4px 12px; border-radius: 999px; align-self: center; }
+.kh-ilk-pill--block { background: var(--alarm-interlock); color: var(--alarm-ink); }
+.kh-ilk-pill--permit { border: 2px solid var(--proc-line-live); }
+
+.kh-ilk-ladder-wrap { overflow-x: auto; padding: 8px 8px 4px; }
+.kh-ilk-ladder { display: block; margin: 0 auto; max-width: 100%; height: auto; font-family: var(--hmi-font); }
+@media (max-width: 560px) { .kh-ilk-ladder { max-width: none; } }
+
+.kh-ilk-wire { stroke: var(--proc-line-dead); stroke-width: var(--hmi-stroke-dead, 2px); fill: none; }
+.kh-ilk-wire--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-live, 3px); stroke-linecap: square; }
+
+.kh-ilk-gate { cursor: default; outline: none; }
+.kh-ilk-gate-box { fill: var(--proc-surface); stroke-width: 2; }
+.kh-ilk-gate--permit .kh-ilk-gate-box { stroke: var(--proc-line-live); }
+.kh-ilk-gate--block .kh-ilk-gate-box { stroke: var(--alarm-interlock); }
+.kh-ilk-gate--unknown .kh-ilk-gate-box { stroke: var(--text-label); stroke-dasharray: 5 4; }
+.kh-ilk-gate--stops .kh-ilk-gate-box { fill: var(--kh-ilk-tint); stroke-width: 3.5; }
+.kh-ilk-gate--hl .kh-ilk-gate-box,
+.kh-ilk-gate:focus-visible .kh-ilk-gate-box { stroke-width: 4; }
+.kh-ilk-gate:focus-visible .kh-ilk-gate-box { stroke: var(--focus-color); }
+.kh-ilk-gate-t { fill: var(--text-value); font-size: 13px; }
+.kh-ilk-gate--muted:not(.kh-ilk-gate--permit) .kh-ilk-gate-t { fill: var(--text-label); }
+.kh-ilk-badge { fill: var(--proc-surface-2); stroke: var(--proc-border); }
+.kh-ilk-badge-t { fill: var(--text-value); font-size: 11px; font-weight: 600; }
+.kh-ilk-ico-permit { stroke: var(--proc-line-live); stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.kh-ilk-ico-block rect { fill: var(--alarm-interlock); }
+.kh-ilk-ico-block path { fill: none; stroke: var(--alarm-interlock); stroke-width: 2; }
+.kh-ilk-ico-unknown { fill: var(--text-label); font-size: 15px; font-weight: 700; }
+
+.kh-ilk-frame rect { fill: none; stroke-width: 1.5; }
+.kh-ilk-frame--ref rect { stroke: var(--proc-border); stroke-dasharray: 6 4; }
+.kh-ilk-frame--not rect { stroke: var(--text-label); }
+.kh-ilk-frame--stops rect { stroke: var(--alarm-interlock); stroke-width: 3; }
+.kh-ilk-frame-tag { fill: var(--text-value); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
+.kh-ilk-frame-t { fill: var(--text-label); font-size: 11px; font-family: var(--hmi-mono); }
+
+.kh-ilk-start { fill: var(--proc-line-live); }
+.kh-ilk-node-t { fill: var(--text-label); font-size: 12px; }
+.kh-ilk-node-t--strong { fill: var(--text-value); font-size: 14px; font-weight: 600; }
+.kh-ilk-end-ring { fill: none; stroke: var(--proc-line-dead); stroke-width: 2; }
+.kh-ilk-end-dot { fill: var(--proc-surface); stroke: var(--proc-line-dead); stroke-width: 2; }
+.kh-ilk-end--allowed .kh-ilk-end-ring { stroke: var(--proc-line-live); }
+.kh-ilk-end--allowed .kh-ilk-end-dot { fill: var(--proc-line-live); stroke: none; }
+.kh-ilk-end-check { stroke: var(--alarm-ink); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: no-preference) {
+  .kh-ilk-wire, .kh-ilk-gate-box { transition: stroke 160ms ease, fill 160ms ease; }
+}
+
+.kh-ilk-conds { list-style: none; margin: 0; padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--proc-border); }
+.kh-ilk-group { padding: 8px 8px 2px; font-size: 12px; color: var(--text-label); font-family: var(--hmi-mono); }
+.kh-ilk-cond { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px; border-radius: 8px; }
+.kh-ilk-cond--hl { background: var(--proc-surface-2); }
+.kh-ilk-cond--stops { outline: 2px solid var(--alarm-interlock); outline-offset: -2px; background: var(--kh-ilk-tint); }
+.kh-ilk-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: var(--proc-surface-2); border: 1px solid var(--proc-border); }
+.kh-ilk-cond-txt { min-width: 0; display: flex; flex-direction: column; }
+.kh-ilk-expr { font-family: var(--hmi-mono); font-size: 12px; color: var(--text-label); overflow-wrap: anywhere; }
+.kh-ilk-cond-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.kh-ilk-status { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.kh-ilk-status--block { color: var(--alarm-interlock); }
+.kh-ilk-status--unknown { color: var(--text-label); }
+.kh-ilk-now { font-size: 13px; color: var(--text-label); }

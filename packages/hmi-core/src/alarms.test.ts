@@ -101,6 +101,17 @@ describe("alarm store", () => {
     expect(store.get().counts.unacked).toBe(0);
   });
 
+  it("does not acknowledge without the ack permission", async () => {
+    const backend = createMockBackend(feederBay());
+    const store = createAlarmStore(backend, { permissions: { can: (p) => p !== "ackAlarm" } });
+    await store.start();
+    const { instanceId } = backend.raiseAlarm({ name: "a", area: "vds.sub", severity: "low" });
+    await tick();
+    await expect(store.ack(instanceId)).resolves.toBe(false);
+    await expect(store.ackMany([instanceId])).resolves.toEqual([]);
+    expect(store.get().counts.unacked).toBe(1);
+  });
+
   it("follows only its areas", async () => {
     const backend = createMockBackend(feederBay());
     const store = createAlarmStore(backend, { areas: ["vds.wf.>"] });
