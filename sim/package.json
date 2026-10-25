@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/plant.ts",
-    "./sim": "./src/sim/model.ts"
+    "./sim": "./src/sim/model.ts",
+    "./field": "./src/sim/field.ts"
   },
   "scripts": {
     "gen": "node src/gen.ts",

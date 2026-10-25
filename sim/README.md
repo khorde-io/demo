@@ -9,7 +9,7 @@ split 34.5 kV bus with a bus coupler).
 | `src/plant.ts` | The plant description: topology, points, alarms, commands and interlocks. Everything else is derived from it. |
 | `site-config/vds-agents.yaml` | **Generated.** The agent config for both REST agents, uploaded to the hub. |
 | `site-config/agent-config.schema.json` | Copy of `https://schemas.khorde.io/v1/agent-config.json`, used by the tests. |
-| `src/sim/` | The simulator: plant model, `/batch` publisher, command webhook. |
+| `src/sim/` | The simulator: plant model, field layer, `/batch` publisher, command webhook. The model steps once a second; the field layer reports each point like an RTU would: analog values on their own scan (0.8–1.6 s electrical, 2–4 s turbine, 5–10 s temperatures, random phase) past a deadband, discrete changes as events 20–400 ms later, and every point again on its own 30–60 s integrity period. Each value carries its acquisition time. |
 | `agents/*.yaml` | Runtime settings of each REST agent container (broker, auth, webhook). |
 | `docker-compose.yaml` | Both REST agents and the simulator. |
 | `keys/` | Service-account keys from the control plane. Git-ignored. |

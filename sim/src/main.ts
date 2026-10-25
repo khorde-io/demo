@@ -6,13 +6,14 @@
  *   SUBSTATION_AGENT_URL   http://agent-substation:9090
  *   WINDFARM_AGENT_URL     http://agent-windfarm:9090
  *   PORT                   8091   (webhook + scenario control)
- *   TICK_MS                1000
+ *   TICK_MS                1000   (model step; values are reported on their own scans)
  *   TURBINES_PER_FEEDER    6      (must match the uploaded agent config)
  *   SCENARIO               showcase  (initial state; "normal" for a clean plant)
  *   THERMAL_SPEED          10     (transformer temperatures move this much faster)
  */
 
 import { createSimulation, SCENARIOS, type Scenario } from "./sim/model.ts";
+import { createField } from "./sim/field.ts";
 import { createPublisher } from "./sim/publisher.ts";
 import { createSimServer } from "./sim/server.ts";
 import { AGENTS, buildPlant } from "./plant.ts";
@@ -32,21 +33,20 @@ const publishers = {
   [AGENTS.windfarm]: createPublisher({ url: env("WINDFARM_AGENT_URL", "http://agent-windfarm:9090"), log }),
 };
 
+// The model steps once per TICK_MS; the field polls ten times as often, so
+// points are scanned and reported at their own moments, not all at once.
 const tickMs = Number(env("TICK_MS", "1000"));
-let busy = false;
-setInterval(async () => {
-  if (busy) return; // an agent is slow: skip a tick rather than pile up requests
-  busy = true;
-  try {
+const field = createField();
+let stepped = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  while (now - stepped >= tickMs) {
     sim.step(tickMs / 1000);
-    const samples = sim.samples();
-    await Promise.all(
-      Object.entries(publishers).map(([agent, pub]) => pub.publish(samples.filter((s) => agentOf.get(s.addr) === agent))),
-    );
-  } finally {
-    busy = false;
+    stepped += tickMs;
   }
-}, tickMs);
+  const reports = field.poll(sim.samples(), now);
+  for (const [agent, pub] of Object.entries(publishers)) void pub.publish(reports.filter((r) => agentOf.get(r.addr) === agent));
+}, 100);
 
 const port = Number(env("PORT", "8091"));
 createSimServer(sim, log).listen(port, () => {

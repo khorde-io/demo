@@ -8,6 +8,7 @@
 import { pointId, type PointId } from "@khorde/hmi-core";
 import { createMockBackend, type MockBackend } from "@khorde/hmi-core/mock";
 import type { Plant } from "@khorde/demo-plant";
+import { createField } from "@khorde/demo-plant/field";
 import { createSimulation, type Scenario, type Simulation } from "@khorde/demo-plant/sim";
 import { createAlarmEngine } from "./alarmEngine.ts";
 import { mockPlant } from "./mockPlant.ts";
@@ -29,26 +30,44 @@ export function startMockSite(plant: Plant, options: { tickMs?: number; scenario
   const idOf = new Map<string, PointId>(plant.points.map((p) => [`${p.equipment}.${p.name}`, pointId(p.equipment, p.name)]));
   const alarms = createAlarmEngine(plant.alarms.map((a) => a.config), backend);
 
-  const tick = () => {
-    sim.step(tickMs / 1000);
-    for (const s of sim.samples()) {
-      const id = idOf.get(s.addr);
-      if (id) backend.publish(id, s.value, { quality: s.quality ? "good" : "bad" });
+  const field = createField();
+  let stepped = Date.now();
+  // The model steps once per tick; the field reports each point on its own scan.
+  const poll = (now = Date.now()) => {
+    while (now - stepped >= tickMs) {
+      sim.step(tickMs / 1000);
+      stepped += tickMs;
+    }
+    for (const r of field.poll(sim.samples(), now)) {
+      const id = idOf.get(r.addr);
+      if (id) backend.publish(id, r.value, { quality: r.quality ? "good" : "bad", timestamp: new Date(r.at) });
     }
     alarms.evaluate((id) => backend.value(id));
+  };
+  const beat = () => {
     for (const agent of Object.values(plant.agents)) backend.setHeartbeat("agent", agent, "online");
   };
 
   sim.scenario(options.scenario ?? "showcase");
-  tick();
-  const timer = setInterval(tick, tickMs);
+  sim.step(tickMs / 1000);
+  // Start-up is a general interrogation: every point once, so screens have values at once.
+  for (const s of sim.samples()) {
+    const id = idOf.get(s.addr);
+    if (id) backend.publish(id, s.value, { quality: s.quality ? "good" : "bad" });
+  }
+  alarms.evaluate((id) => backend.value(id));
+  beat();
+  const timers = [setInterval(poll, 100), setInterval(beat, 5_000)];
   return {
     backend,
     sim,
     scenario: (name) => {
       sim.scenario(name);
-      tick();
+      // Apply it now rather than on the next step, so the screens react at once.
+      sim.step(tickMs / 1000);
+      stepped = Date.now();
+      poll();
     },
-    stop: () => clearInterval(timer),
+    stop: () => timers.forEach(clearInterval),
   };
 }
