@@ -24,9 +24,11 @@ export interface AppShellProps {
    * the frame follow the window.
    */
   canvas?: { width: number; height: number };
+  /** The page's name, as its (visually hidden) top heading. */
+  title?: string;
 }
 
-export function AppShell({ header, footer, children, canvas }: AppShellProps) {
+export function AppShell({ header, footer, children, canvas, title }: AppShellProps) {
   const stage = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -43,7 +45,11 @@ export function AppShell({ header, footer, children, canvas }: AppShellProps) {
   const frame = (
     <div className="kh-shell" style={canvas ? { width: canvas.width, height: canvas.height, transform: `scale(${scale})` } : undefined}>
       {header}
-      <main className="kh-shell-main">{children}</main>
+      {/* Focusable so a keyboard can scroll it even on a page with no controls. */}
+      <main className="kh-shell-main" tabIndex={0} aria-label={title}>
+        {title && <h1 className="kh-sr-only">{title}</h1>}
+        {children}
+      </main>
       {footer}
     </div>
   );
@@ -132,9 +138,8 @@ function UserChip({ name, role }: { name: string; role: string }) {
       <span className="kh-user-avatar" aria-hidden="true">
         {initials(name)}
       </span>
-      <span className="kh-user-text" aria-hidden="true">
-        <span className="kh-user-name">{name}</span>
-        <span className="kh-user-role">{role}</span>
+      <span className="kh-user-text">
+        <span className="kh-user-name">{name}</span> <span className="kh-user-role">{role}</span>
       </span>
     </>
   );
@@ -173,7 +178,6 @@ function UserMenu({ user, onSwitchUser, onSignOut }: { user: { name: string; rol
         className="kh-user kh-user--button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={i18n.t("shell.userMenu", { name: user.name, role: user.role })}
         onClick={() => setOpen((o) => !o)}
       >
         <UserChip name={user.name} role={user.role} />
@@ -235,17 +239,13 @@ export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, o
           {([1, 2, 3] as AlarmPriority[]).map((p) => {
             const c = counts.byPriority[p];
             return (
-              <button
-                key={p}
-                type="button"
-                className="kh-summary-item"
-                onClick={onOpenAlarms}
-                aria-label={i18n.t("shell.priorityCount", { priority: p, count: c.total, unacked: c.unacked })}
-              >
+              <button key={p} type="button" className="kh-summary-item" onClick={onOpenAlarms}>
+                <span className="kh-sr-only">{i18n.t("shell.priorityLabel", { priority: p })} </span>
                 <svg width={20} height={20} viewBox="-1 -1 22 22" aria-hidden="true">
                   <AlarmShape priority={p} indication={c.unacked > 0 ? "active-unacked" : "active-acked"} />
                 </svg>
                 <span className="kh-summary-count">{c.total}</span>
+                <span className="kh-sr-only"> {i18n.t("shell.prioritySuffix", { unacked: c.unacked })}</span>
               </button>
             );
           })}
@@ -263,7 +263,8 @@ export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, o
             (onSwitchUser || onSignOut ? (
               <UserMenu user={user} onSwitchUser={onSwitchUser} onSignOut={onSignOut} />
             ) : (
-              <div className="kh-user" aria-label={i18n.t("shell.signedInAs", { name: user.name, role: user.role })}>
+              <div className="kh-user">
+                <span className="kh-sr-only">{i18n.t("shell.signedInAsPrefix")} </span>
                 <UserChip name={user.name} role={user.role} />
               </div>
             ))}

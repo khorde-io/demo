@@ -50,18 +50,10 @@ function Gate({ gate, text, hl, onHighlight }: { gate: GateBox; text: string; hl
   const cy = gate.y + gate.h / 2;
   const state = i18n.t(`interlock.state.${c.state ?? "BAD_QUALITY"}`);
   return (
-    <g
-      className={cls}
-      data-n={c.n}
-      tabIndex={0}
-      role="button"
-      aria-label={`${c.n}. ${text}: ${flow.stops ? i18n.t("interlock.stopsHere") : state}`}
-      onPointerEnter={() => onHighlight?.(c.n)}
-      onPointerLeave={() => onHighlight?.(null)}
-      onFocus={() => onHighlight?.(c.n)}
-      onBlur={() => onHighlight?.(null)}
-    >
-      <title>{text}</title>
+    // Not a tab stop: the drawing is one image, and the condition list beside it
+    // carries the same items for the keyboard. Hovering still pairs them up.
+    <g className={cls} data-n={c.n} onPointerEnter={() => onHighlight?.(c.n)} onPointerLeave={() => onHighlight?.(null)}>
+      <title>{`${c.n}. ${text}: ${flow.stops ? i18n.t("interlock.stopsHere") : state}`}</title>
       <rect className="kh-ilk-gate-box" x={gate.x} y={gate.y} width={gate.w} height={gate.h} rx={6} />
       <circle className="kh-ilk-badge" cx={gate.x + 18} cy={cy} r={10} />
       <text className="kh-ilk-badge-t" x={gate.x + 18} y={cy + 4} textAnchor="middle">

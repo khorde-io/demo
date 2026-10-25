@@ -129,10 +129,11 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (page: PageId, focu
       <section className="page-panel ov-grid" aria-label="Grid connection">
         <h2 className="eyebrow">Grid connection · line L1</h2>
         <div className="ov-grid-body">
-          <button type="button" className="ov-symbol" onClick={() => onNavigate("substation", `${LINE}.cb`)} aria-label="L1 circuit breaker, open the line bay">
+          <button type="button" className="ov-symbol" onClick={() => onNavigate("substation", `${LINE}.cb`)}>
             <SymbolSvg width={56} height={68}>
-              <BoundBreaker pos={pointId(`${LINE}.cb`, "pos")} remoteLocal={pointId(`${LINE}.cb`, "remote_local")} />
+              <BoundBreaker pos={pointId(`${LINE}.cb`, "pos")} remoteLocal={pointId(`${LINE}.cb`, "remote_local")} label={i18n.equipmentName(`${LINE}.cb`)} />
             </SymbolSvg>
+            <span className="kh-sr-only">, open the line bay</span>
           </button>
           <dl className="detail-facts">
             <dt>Voltage</dt>

@@ -72,8 +72,15 @@ from another path.
 
 Adding `/<equipment id>` opens that equipment's faceplate (bay, transformer or
 turbine), for example `#substation/vds.sub.mv.a.f1.cb` or
-`#windfarm/vds.wf.f3.t14`. The footer links to the symbol sheet and the
-interlock bench.
+`#windfarm/vds.wf.f3.t14`. The footer links to the symbol sheet, the
+interlock bench and the performance bench.
+
+## Docs
+
+- [Build your own HMI](docs/build-your-own-hmi.md): from an empty app to live screens, commands, alarms and trends.
+- [ISA-101 rationale](docs/isa-101.md): the visual and interaction choices, and why.
+- [Accessibility](docs/accessibility.md): what is checked, the last audit, and how to run it.
+- [Performance](docs/performance.md): the 1,000-points-at-1-Hz target, results, and the bench.
 
 ## Checks
 

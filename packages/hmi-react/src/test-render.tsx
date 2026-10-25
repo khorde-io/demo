@@ -28,3 +28,11 @@ export function render(node: ReactNode, services: Partial<HmiServices> = {}): st
 export const renderSvg = (node: ReactNode, services: Partial<HmiServices> = {}) => render(<svg>{node}</svg>, services);
 
 export const count = (html: string, s: string) => html.split(s).length - 1;
+
+/** What assistive technology reads from markup: the text, minus anything aria-hidden. */
+export function spokenText(html: string): string {
+  return html
+    .replace(/<(\w+)[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/\1>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&");
+}

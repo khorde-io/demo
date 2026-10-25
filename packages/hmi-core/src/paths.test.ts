@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePointId, pointId, pointPath } from "./model.ts";
-import { covers, isPattern, matchPath, reducePatterns } from "./paths.ts";
+import { covers, isPattern, matchPath, pathMatcher, reducePatterns } from "./paths.ts";
 
 describe("matchPath", () => {
   it.each([
@@ -36,6 +36,21 @@ describe("covers and reducePatterns", () => {
       "vds.sub.>",
       "vds.wf.f1.t01.p_kw",
     ]);
+  });
+});
+
+describe("pathMatcher", () => {
+  it("matches exact paths and patterns like matchPath", () => {
+    const m = pathMatcher(["vds.sub.f1.cb.pos", "vds.wf.*.t01.p_kw", "vds.sub.tr1.>"]);
+    expect(["vds.sub.f1.cb.pos", "vds.wf.f1.t01.p_kw", "vds.sub.tr1.oil_temp"].map(m)).toEqual([true, true, true]);
+    expect(["vds.sub.f1.cb", "vds.wf.f1.t02.p_kw", "vds.sub.tr1"].map(m)).toEqual([false, false, false]);
+  });
+
+  it("reduces thousands of exact paths quickly", () => {
+    const many = Array.from({ length: 5000 }, (_, i) => `vds.x.p${i}.v`);
+    const t = performance.now();
+    expect(reducePatterns([...many, "vds.x.p1.>"])).toHaveLength(4999 + 1);
+    expect(performance.now() - t).toBeLessThan(200);
   });
 });
 

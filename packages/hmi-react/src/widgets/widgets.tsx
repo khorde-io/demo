@@ -6,7 +6,7 @@
 import "./widgets.css";
 import type { Alarm, AlarmPriority, Quality } from "@khorde/hmi-core";
 import { useI18n } from "../context.tsx";
-import { AlarmShape } from "../symbols/parts.tsx";
+import { AlarmShape, INDICATION_KEY } from "../symbols/parts.tsx";
 import type { AlarmIndication } from "../symbols/types.ts";
 
 /** How an alarm from the list is indicated. */
@@ -15,11 +15,6 @@ export function alarmIndication(alarm: Pick<Alarm, "state" | "acked">): AlarmInd
   return alarm.acked ? "active-acked" : "active-unacked";
 }
 
-const INDICATION_KEY: Record<AlarmIndication, string> = {
-  "active-unacked": "alarmIndicator.activeUnacked",
-  "active-acked": "alarmIndicator.activeAcked",
-  "returned-unacked": "alarmIndicator.returnedUnacked",
-};
 
 export function AlarmIndicator({ priority, indication, size = 20 }: { priority: AlarmPriority; indication: AlarmIndication; size?: number }) {
   const i18n = useI18n();
@@ -96,16 +91,14 @@ const pct = (v: number, min: number, max: number) => `${Math.max(0, Math.min(100
 
 /** The high-performance "moving analog indicator": where the value sits, not just its number. */
 export function AnalogBar({ value, min, max, normal, limits = [], setpoint, quality = "good", label }: AnalogBarProps) {
+  const i18n = useI18n();
   const usable = value !== null && quality === "good";
+  // A meter needs a current value; without one the bar is an image saying so.
+  const a11y = usable
+    ? { role: "meter", "aria-label": label, "aria-valuemin": min, "aria-valuemax": max, "aria-valuenow": value }
+    : { role: "img", "aria-label": `${label}, ${i18n.t("value.noValue")}` };
   return (
-    <div
-      className={`kh-abar${usable ? "" : " kh-abar--bad"}`}
-      role="meter"
-      aria-label={label}
-      aria-valuemin={min}
-      aria-valuemax={max}
-      {...(usable ? { "aria-valuenow": value } : {})}
-    >
+    <div className={`kh-abar${usable ? "" : " kh-abar--bad"}`} {...a11y}>
       {usable && normal && <span className="kh-abar-band" style={{ left: pct(normal[0], min, max), width: `calc(${pct(normal[1], min, max)} - ${pct(normal[0], min, max)})` }} />}
       {usable && limits.map((l) => <span key={l} className="kh-abar-lim" style={{ left: pct(l, min, max) }} />)}
       {usable && setpoint !== undefined && setpoint !== null && <span className="kh-abar-sp" style={{ left: pct(setpoint, min, max) }} />}

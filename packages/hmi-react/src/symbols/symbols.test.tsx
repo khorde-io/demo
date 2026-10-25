@@ -47,7 +47,9 @@ describe("breaker", () => {
     expect(html).toContain("kh-alarm-shape--unacked");
     expect(html).toContain("kh-badge-lock");
     expect(html).toContain("kh-badge-tag");
-    expect(html).toContain('aria-label="F1 CB, Closed, Interlocked, Local control"');
+    // The badges are drawn only; the name says the same in words, alarm included.
+    expect(html).toContain('aria-label="F1 CB, Closed, Interlocked, Local control, Priority 1 alarm, not acknowledged"');
+    expect(html).toContain('<g aria-hidden="true" class="kh-alarm-shape');
   });
 
   it("is a keyboard-reachable button only when it can be activated", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render } from "../test-render.tsx";
+import { render, spokenText } from "../test-render.tsx";
 import { TurbineTile } from "./TurbineTile.tsx";
 import { alarmIndication, AlarmIndicator, AnalogBar, AnalogValue } from "./widgets.tsx";
 
@@ -69,7 +69,7 @@ describe("turbine tile", () => {
     const html = tile({});
     expect(html).toContain("kh-tile--producing");
     expect(html).toContain(">3.52<");
-    expect(html).toContain('aria-label="WTG 14, Producing, 3.52 MW"');
+    expect(spokenText(html)).toContain("WTG 14, Producing, 3.52 MW");
   });
 
   it("marks fault, comms loss and curtailment", () => {

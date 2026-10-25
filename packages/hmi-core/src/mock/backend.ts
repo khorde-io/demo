@@ -28,7 +28,7 @@ import {
   type RequestState,
   type RequestUpdate,
 } from "../model.ts";
-import { matchAny, matchPath } from "../paths.ts";
+import { matchAny, matchPath, pathMatcher } from "../paths.ts";
 import { writable } from "../store.ts";
 
 export interface MockPoint {
@@ -232,7 +232,8 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
     connection,
 
     subscribeMeasurements(paths, sink) {
-      const s = { match: (m: Measurement) => matchAny(paths, pointPath(m.id)), sink };
+      const matches = pathMatcher(paths);
+      const s = { match: (m: Measurement) => matches(pointPath(m.id)), sink };
       measSubs.add(s);
       if (online()) for (const m of current.values()) if (s.match(m)) defer(() => measSubs.has(s) && sink.next(m));
       return () => measSubs.delete(s);

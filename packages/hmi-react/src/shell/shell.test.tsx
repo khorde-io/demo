@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SCADA_ROLES, writable, type Alarm, type AlarmSnapshot, type ConnectionState, type Heartbeat } from "@khorde/hmi-core";
-import { count, render } from "../test-render.tsx";
+import { count, render, spokenText } from "../test-render.tsx";
 import type { HmiServices } from "../context.tsx";
 import { AppShell, bannerAlarm, Footer, Header, roleKey } from "./shell.tsx";
 
@@ -62,14 +62,17 @@ describe("header", () => {
     const html = header([]);
     expect(html).toContain(">14:32:41<");
     expect(html).toContain("GMT-3");
-    expect(html).toContain('aria-label="Signed in as operator1, Operator"');
+    expect(html).toContain("Signed in as");
+    expect(html).toContain("operator1");
     expect(html).toContain(">OP<");
   });
 
   it("counts alarms per priority and flashes only priorities with unacknowledged alarms", () => {
     const html = header([alarm({}), alarm({ instanceId: "i2", priority: 3, severity: "low", acked: true }), alarm({ instanceId: "i3", priority: 3, severity: "low" })]);
-    expect(html).toContain("Priority 1: 1 alarms, 1 not acknowledged");
-    expect(html).toContain("Priority 3: 2 alarms, 1 not acknowledged");
+    // The name comes from the content: hidden words around the visible count.
+    expect(html).toContain("Priority 1:");
+    expect(html).toContain("alarms, 1 not acknowledged");
+    expect(spokenText(html)).toContain("Priority 3: 2 alarms, 1 not acknowledged");
     expect(html).toContain("2 unacked");
     expect(count(html, "kh-alarm-shape--unacked")).toBe(2 + 1); // P1 and P3 summary items, plus the banner
   });
@@ -127,7 +130,7 @@ describe("shell", () => {
     );
     expect(html).toContain('class="kh-shell-stage"');
     expect(html).toContain("width:1920px;height:1080px");
-    expect(html).toContain('<main class="kh-shell-main">view</main>');
+    expect(html).toContain('<main class="kh-shell-main" tabindex="0">view</main>');
   });
 
   it("names the most capable role", () => {

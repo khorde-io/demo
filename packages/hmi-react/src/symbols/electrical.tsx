@@ -156,20 +156,25 @@ export function Transformer2W(props: TransformerProps) {
   const i18n = useI18n();
   const { hvLive, lvLive, tap } = props;
   const name = [props.label ?? i18n.t("symbol.transformer"), tap !== undefined && tap !== null ? i18n.t("symbol.tap", { tap }) : null].filter(Boolean).join(", ");
+  const { x = 0, y = 0, scale = 1 } = props;
   return (
-    <SymbolGroup base={props} name={name} className="kh-transformer">
-      <rect className="kh-sym-hit" x={-30} y={-48} width={60} height={96} />
-      <line className={wireClass(hvLive)} x1={0} y1={-48} x2={0} y2={-36} />
-      <circle className={`kh-winding ${wireClass(hvLive)}`} cx={0} cy={-12} r={24} />
-      <circle className={`kh-winding ${wireClass(lvLive)}`} cx={0} cy={12} r={24} />
-      <line className={wireClass(lvLive)} x1={0} y1={36} x2={0} y2={48} />
+    <>
+      <SymbolGroup base={props} name={name} className="kh-transformer">
+        <rect className="kh-sym-hit" x={-30} y={-48} width={60} height={96} />
+        <line className={wireClass(hvLive)} x1={0} y1={-48} x2={0} y2={-36} />
+        <circle className={`kh-winding ${wireClass(hvLive)}`} cx={0} cy={-12} r={24} />
+        <circle className={`kh-winding ${wireClass(lvLive)}`} cx={0} cy={12} r={24} />
+        <line className={wireClass(lvLive)} x1={0} y1={36} x2={0} y2={48} />
+        <Badges base={props} x={22} />
+      </SymbolGroup>
       {tap !== undefined && tap !== null && (
-        <text className="kh-sym-text" x={32} y={4}>
+        // Beside the symbol, not inside it: the tap is already in its name, and
+        // text inside a named control has to appear in that name.
+        <text className="kh-sym-text" transform={`translate(${x} ${y})${scale !== 1 ? ` scale(${scale})` : ""}`} x={32} y={4} aria-hidden="true">
           {i18n.t("symbol.tap", { tap })}
         </text>
       )}
-      <Badges base={props} x={22} />
-    </SymbolGroup>
+    </>
   );
 }
 
@@ -179,7 +184,7 @@ export function Generator(props: SymbolBase & { energized: Energized }) {
   return (
     <SymbolGroup base={props} name={props.label ?? i18n.t("symbol.generator")} className="kh-generator">
       <circle className={wireClass(props.energized)} cx={0} cy={0} r={20} />
-      <text className="kh-sym-text kh-sym-text--center" x={0} y={6} textAnchor="middle">
+      <text className="kh-sym-text kh-sym-text--center" x={0} y={6} textAnchor="middle" aria-hidden="true">
         G
       </text>
       <Badges base={props} x={14} />

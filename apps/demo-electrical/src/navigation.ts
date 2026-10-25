@@ -20,6 +20,7 @@ export const PAGES = [
 export const DEV_PAGES = [
   { id: "interlocks", label: "Interlock bench" },
   { id: "symbols", label: "Symbol sheet" },
+  { id: "perf", label: "Performance bench" },
 ] as const;
 
 export type PageId = (typeof PAGES)[number]["id"] | (typeof DEV_PAGES)[number]["id"];

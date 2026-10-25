@@ -45,10 +45,11 @@ export function WindFarmScreen({ focus, onFocus }: { focus: string | null; onFoc
           return (
             <section key={feeder.id} className="farm-feeder" aria-label={i18n.equipmentName(feeder.id)}>
               <header className="farm-feeder-head">
-                <button type="button" className="farm-feeder-cb" onClick={() => onFocus(feeder.cb)} aria-label={`${i18n.equipmentName(feeder.cb)}, open the bay`}>
+                <button type="button" className="farm-feeder-cb" onClick={() => onFocus(feeder.cb)}>
                   <SymbolSvg width={28} height={34}>
-                    <BoundBreaker pos={pointId(feeder.cb, "pos")} scale={0.45} alarm={alarm(feeder.cb)} />
+                    <BoundBreaker pos={pointId(feeder.cb, "pos")} scale={0.45} alarm={alarm(feeder.cb)} label={i18n.equipmentName(feeder.cb)} />
                   </SymbolSvg>
+                  <span className="kh-sr-only">, open the bay</span>
                 </button>
                 <strong>{i18n.equipmentName(feeder.id)}</strong>
                 <span className="label">{i18n.equipmentName(bayById.get(feeder.id)?.bus === "a" ? "vds.sub.mv.a" : "vds.sub.mv.b")}</span>

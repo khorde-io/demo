@@ -4,14 +4,38 @@
     {
       "name": "demo-electrical",
       "runtimeExecutable": "devenv",
-      "runtimeArgs": ["shell", "--", "npm", "run", "dev"],
+      "runtimeArgs": [
+        "shell",
+        "--",
+        "npm",
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "demo-mock",
       "runtimeExecutable": "devenv",
-      "runtimeArgs": ["shell", "--", "npm", "run", "dev:mock"],
+      "runtimeArgs": [
+        "shell",
+        "--",
+        "npm",
+        "run",
+        "dev:mock"
+      ],
       "port": 5174
+    },
+    {
+      "name": "demo-mock-prod",
+      "runtimeExecutable": "devenv",
+      "runtimeArgs": [
+        "shell",
+        "--",
+        "bash",
+        "-c",
+        "cd apps/demo-electrical && VITE_HMI_BACKEND=mock npx vite build --outDir dist-mock --emptyOutDir && npx vite preview --outDir dist-mock --port 4174 --strictPort"
+      ],
+      "port": 4174
     }
   ]
 }

@@ -12,6 +12,7 @@ import { OverviewScreen } from "./screens/OverviewScreen.tsx";
 import { SubstationScreen } from "./screens/SubstationScreen.tsx";
 import { TrendsScreen } from "./screens/TrendsScreen.tsx";
 import { WindFarmScreen } from "./screens/WindFarmScreen.tsx";
+import { PerfBench } from "./PerfBench.tsx";
 import { SymbolSheet } from "./SymbolSheet.tsx";
 
 const BENCH: BenchCommand[] = [
@@ -71,13 +72,17 @@ function Frame({ booted }: { booted: Booted }) {
         return <InterlockWorkbench commands={BENCH} backend={site?.backend ?? null} />;
       case "symbols":
         return <SymbolSheet />;
+      case "perf":
+        return <PerfBench />;
       default:
         return <OverviewScreen onNavigate={navigate} />;
     }
   })();
 
+  const pageLabel = [...PAGES, ...DEV_PAGES].find((p) => p.id === route.page)?.label ?? "";
   return (
     <AppShell
+      title={route.focus ? `${pageLabel}: ${i18n.equipmentName(route.focus)}` : pageLabel}
       header={
         <Header
           site={{ name: hmi.config.siteName, subtitle: SUBTITLE, logo: LOGO }}

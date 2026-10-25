@@ -69,7 +69,8 @@
 .kh-ilk-group { padding: 8px 8px 2px; font-size: 12px; color: var(--text-label); font-family: var(--hmi-mono); }
 .kh-ilk-cond { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px; border-radius: 8px; }
 .kh-ilk-cond--hl { background: var(--proc-surface-2); }
-.kh-ilk-cond--stops { outline: 2px solid var(--alarm-interlock); outline-offset: -2px; background: var(--kh-ilk-tint); }
+/* No tint behind text here: violet on the tint falls below 4.5:1. */
+.kh-ilk-cond--stops { outline: 2px solid var(--alarm-interlock); outline-offset: -2px; }
 .kh-ilk-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: var(--proc-surface-2); border: 1px solid var(--proc-border); }
 .kh-ilk-cond-txt { min-width: 0; display: flex; flex-direction: column; }
 .kh-ilk-expr { font-family: var(--hmi-mono); font-size: 12px; color: var(--text-label); overflow-wrap: anywhere; }

@@ -8,6 +8,21 @@ export function isPattern(path: string): boolean {
   return path.split(".").some((s) => s === "*" || s === ">");
 }
 
+/**
+ * A matcher for many patterns at once. Exact paths are looked up in a set, so
+ * watching thousands of single points costs one lookup per message, not one
+ * comparison per point.
+ */
+export function pathMatcher(patterns: readonly string[]): (path: string) => boolean {
+  const exact = new Set<string>();
+  const wild: string[] = [];
+  for (const p of patterns) {
+    if (isPattern(p)) wild.push(p);
+    else exact.add(p);
+  }
+  return (path) => exact.has(path) || wild.some((p) => matchPath(p, path));
+}
+
 export function matchPath(pattern: string, path: string): boolean {
   const p = pattern.split(".");
   const s = path.split(".");
@@ -27,7 +42,9 @@ export function matchAny(patterns: readonly string[], path: string): boolean {
 /** Drops patterns already covered by another one in the list (keeps order). */
 export function reducePatterns(patterns: Iterable<string>): string[] {
   const unique = [...new Set(patterns)];
-  return unique.filter((p) => !unique.some((q) => q !== p && covers(q, p)));
+  // Only a wildcard pattern covers anything besides itself, so compare against those alone.
+  const wild = unique.filter(isPattern);
+  return unique.filter((p) => !wild.some((q) => q !== p && covers(q, p)));
 }
 
 /** True when every path `inner` matches is also matched by `outer`. */

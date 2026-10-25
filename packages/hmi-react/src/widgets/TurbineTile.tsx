@@ -29,32 +29,49 @@ export function TurbineTile({ name, state, powerKw, ratedKw, setpointKw, alarm, 
   const stateText = i18n.t(`symbol.turbine.${state}`);
   const curtailed = setpointKw !== undefined && setpointKw !== null && setpointKw < ratedKw;
   const cls = [`kh-tile`, `kh-tile--${state}`, alarm ? `kh-tile--alarm kh-tile--p${alarm.priority}` : ""].join(" ");
+  const setpointText = curtailed ? i18n.t("tile.setpoint", { value: i18n.formatNumber(setpointKw / 1000, { maximumFractionDigits: 2 }) }) : null;
+  // The accessible name is the visible text (plus hidden separators and the
+  // setpoint), so it matches what a speech-input user reads on the tile.
   const body = (
     <>
       <span className="kh-tile-top">
         <span className="kh-tile-name">{name}</span>
+        <span className="kh-sr-only">, </span>
         {alarm && <AlarmIndicator priority={alarm.priority} indication={alarm.indication} size={18} />}
       </span>
       <span className="kh-tile-state">
         {stateText}
-        {curtailed ? " ▾" : ""}
+        {curtailed && <span aria-hidden="true"> ▾</span>}
       </span>
+      <span className="kh-sr-only">, </span>
       <span className="kh-tile-power">
-        <span className="kh-tile-num">{power}</span> <span className="kh-tile-unit">MW</span>
+        {mw === null ? (
+          <>
+            <span className="kh-tile-num" aria-hidden="true">
+              ?
+            </span>
+            <span className="kh-sr-only">{i18n.t("value.noValue")}</span>
+          </>
+        ) : (
+          <span className="kh-tile-num">{power}</span>
+        )}{" "}
+        <span className="kh-tile-unit" {...(mw === null ? { "aria-hidden": true } : {})}>
+          MW
+        </span>
       </span>
+      {setpointText && <span className="kh-sr-only">, {setpointText}</span>}
       <span className="kh-tile-bar" aria-hidden="true">
         {mw !== null && <span className="kh-tile-fill" style={{ width: `${Math.max(0, Math.min(100, ((powerKw ?? 0) / ratedKw) * 100))}%` }} />}
         {curtailed && <span className="kh-tile-sp" style={{ left: `${(setpointKw / ratedKw) * 100}%` }} />}
       </span>
     </>
   );
-  const label = `${name}, ${stateText}, ${mw === null ? i18n.t("value.noValue") : i18n.t("tile.power", { value: power })}${curtailed ? `, ${i18n.t("tile.setpoint", { value: i18n.formatNumber(setpointKw / 1000, { maximumFractionDigits: 2 }) })}` : ""}`;
   return onActivate ? (
-    <button type="button" className={cls} onClick={onActivate} aria-label={label}>
+    <button type="button" className={cls} onClick={onActivate}>
       {body}
     </button>
   ) : (
-    <div className={cls} role="group" aria-label={label}>
+    <div className={cls} role="group" aria-label={`${name}, ${stateText}`}>
       {body}
     </div>
   );
