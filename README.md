@@ -33,10 +33,47 @@ Then:
 
 ```bash
 npm install
+```
+
+The demo runs in one of two ways.
+
+**Without a hub**, the plant simulator runs in the browser behind a mock
+backend, signed in as an operator, with a scenario picker in the footer:
+
+```bash
+npm run dev:mock
+```
+
+It runs at http://localhost:5174.
+
+**Against a hub**, the app reads `apps/demo-electrical/public/config.json`
+(git-ignored) for the identity provider, the client id of the HMI app and the
+API. Copy `config.example.json` (local hub, see [hub/README.md](hub/README.md))
+or `config.saas.example.json`, fill in the client id, then:
+
+```bash
 npm run dev
 ```
 
-The demo runs at http://localhost:5173.
+It runs at http://localhost:5173, the redirect URI registered for the app. Run
+the simulator and the REST agents too ([sim/README.md](sim/README.md)), and
+sign in with a user that has a SCADA role. `VITE_HMI_CONFIG` loads the config
+from another path.
+
+### Screens
+
+| Route | Level | Screen |
+|---|---|---|
+| `#overview` | L1 | Export against what the wind allows, grid connection, wind, alarms by area, feeders and transformer loading, the day's export. |
+| `#substation` | L2 | The 138/34.5 kV single-line, energized from the measured voltages. Every device and transformer opens its faceplate. |
+| `#windfarm` | L2 | Turbine tiles by collector feeder, laid out from the plant description. |
+| `#alarms`, `#events` | L4 | The live alarm list (ack here) and the event log over a chosen range. |
+| `#trends`, `#comms` | L4 | Trends, and the health of the hub link, the agents and each turbine's link. |
+
+Adding `/<equipment id>` opens that equipment's faceplate (bay, transformer or
+turbine), for example `#substation/vds.sub.mv.a.f1.cb` or
+`#windfarm/vds.wf.f3.t14`. The footer links to the symbol sheet and the
+interlock bench.
 
 ## Checks
 

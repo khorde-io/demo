@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/plant.ts"
+    ".": "./src/plant.ts",
+    "./sim": "./src/sim/model.ts"
   },
   "scripts": {
     "gen": "node src/gen.ts",

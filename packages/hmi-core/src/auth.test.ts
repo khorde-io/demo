@@ -24,6 +24,11 @@ describe("roles", () => {
     expect([...roles].sort()).toEqual([SCADA_ROLES.interlockBypass, SCADA_ROLES.operator]);
   });
 
+  it("reads the hub's plain roles claim, as a list or a map", () => {
+    expect([...rolesFromClaims({ roles: [SCADA_ROLES.viewer, SCADA_ROLES.alarmAck] })]).toEqual([SCADA_ROLES.viewer, SCADA_ROLES.alarmAck]);
+    expect([...rolesFromClaims({ roles: roleClaim(SCADA_ROLES.operator) })]).toEqual([SCADA_ROLES.operator]);
+  });
+
   it("maps roles to permissions", () => {
     const viewer = permissionsFor(new Set([SCADA_ROLES.viewer]));
     expect([viewer.can("view"), viewer.can("operate"), viewer.can("bypassInterlock")]).toEqual([true, false, false]);
@@ -81,6 +86,13 @@ const location = (search = "") => ({ origin: "http://localhost:5173", pathname: 
 const history = { replaceState: vi.fn() };
 
 describe("createAuth", () => {
+  it("asks the identity provider for its account picker on sign-in", async () => {
+    const manager = fakeManager(null);
+    const auth = createAuth({ authority: "http://idp", clientId: "c", projectId: "p" }, { userManager: manager, location: location(), history });
+    await auth.login();
+    expect(manager.signinRedirect).toHaveBeenCalledWith({ prompt: "select_account" });
+  });
+
   it("restores an existing session with roles", async () => {
     const auth = createAuth({ authority: "http://idp", clientId: "c", projectId: "p" }, { userManager: fakeManager(user()), location: location(), history });
     const state = await auth.init();

@@ -15,6 +15,9 @@ export const reactMessages = {
     alarmList: "Alarm list",
     breadcrumb: "You are here",
     signedInAs: "Signed in as {name}, {role}",
+    userMenu: "Account: {name}, {role}",
+    switchUser: "Sign in as another user",
+    signOut: "Sign out",
     api: "API {state}",
     agents: "Agents {online}/{total} online",
     sites: "Site link {state}",
@@ -139,6 +142,7 @@ export const reactMessages = {
     deniedTitle: "No access to this HMI",
     deniedBody: "You're signed in as {name}, but your account has no SCADA role. Ask an administrator to give you the ScadaViewer role.",
     signOut: "Sign out",
+    otherUser: "Sign in as another user",
   },
   tile: {
     power: "{value} MW",

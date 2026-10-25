@@ -1,21 +1,31 @@
-import { AlarmHistoryList, AlarmIndicator, AlarmList, alarmIndication, useAlarms, useHmi, useI18n } from "@khorde/hmi-react";
-import { useMemo, useState } from "react";
+import { AlarmIndicator, AlarmList, alarmIndication, useAlarms, useHmi, useI18n } from "@khorde/hmi-react";
+import { useState } from "react";
+import { focusOf, type PageId } from "../navigation.ts";
 
 const AREAS = [
   { label: "Substation", patterns: ["vds.sub.>"] },
   { label: "Wind farm", patterns: ["vds.wf.>"] },
 ];
 
-/** The live list with a detail panel, and the history of the last hour. */
-export function AlarmsPage() {
+/** The equipment an alarm is about: its measurement's equipment, from the alarm name. */
+function equipmentOf(name: string, area: string): string | null {
+  // Names are `<equipment with underscores>_<point>`; try the longest equipment id first.
+  const parts = name.split("_");
+  for (let n = parts.length - 1; n > 0; n--) {
+    const id = `vds.${parts.slice(0, n).join(".")}`;
+    if (focusOf(id)) return id;
+  }
+  return focusOf(area) ? area : null;
+}
+
+/** L4: the live list with a detail panel. Ack here; the history is the event log. */
+export function AlarmsScreen({ onNavigate }: { onNavigate: (page: PageId, focus?: string) => void }) {
   const i18n = useI18n();
   const { alarms: store, auth } = useHmi();
   const { alarms } = useAlarms();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = alarms.find((a) => a.instanceId === selectedId) ?? null;
-  // The history window is fixed when the page opens.
-  const [range] = useState(() => ({ from: new Date(Date.now() - 3600e3), to: new Date(Date.now() + 60e3) }));
-  const historyFilter = useMemo(() => ({}), []);
+  const equipment = selected ? equipmentOf(selected.name, selected.area) : null;
 
   return (
     <div className="page page--alarms">
@@ -49,20 +59,23 @@ export function AlarmsPage() {
               </dd>
             </dl>
             <p className="note">The text comes from the project dictionary, keyed by alarm name and condition. The API sends only the identifiers.</p>
-            {!selected.acked && auth?.can("ackAlarm") && (
-              <button type="button" className="kh-btn kh-btn--primary" onClick={() => void store?.ack(selected.instanceId)}>
-                Acknowledge
-              </button>
-            )}
+            <div className="detail-actions">
+              {!selected.acked && auth?.can("ackAlarm") && (
+                <button type="button" className="kh-btn kh-btn--primary" onClick={() => void store?.ack(selected.instanceId)}>
+                  Acknowledge
+                </button>
+              )}
+              {equipment && (
+                <button type="button" className="kh-btn" onClick={() => onNavigate(equipment.startsWith("vds.wf.") ? "windfarm" : "substation", equipment)}>
+                  Show {i18n.equipmentName(equipment)}
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <p className="note">Select an alarm to see its details.</p>
         )}
       </aside>
-      <section className="page-panel page-wide">
-        <h2 className="eyebrow">Alarm history · last hour</h2>
-        <AlarmHistoryList from={range.from} to={range.to} filter={historyFilter} />
-      </section>
     </div>
   );
 }

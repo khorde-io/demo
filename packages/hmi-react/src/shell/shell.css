@@ -33,6 +33,13 @@
 .kh-clock-time { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .kh-clock-date { font-size: 12px; color: var(--chrome-text-muted); }
 .kh-user { display: flex; align-items: center; gap: 10px; }
+.kh-user-menu { position: relative; }
+.kh-user--button { font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 10px; padding: 4px 8px; cursor: pointer; text-align: left; }
+.kh-user--button:hover, .kh-user--button[aria-expanded="true"] { border-color: var(--chrome-border); background: var(--chrome-raised); }
+.kh-user--button:focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }
+.kh-user-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 220px; display: flex; flex-direction: column; padding: 6px; background: var(--chrome-raised); border: 1px solid var(--chrome-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 8, 7, 0.4); }
+.kh-user-pop button { font: inherit; font-size: 14px; color: var(--chrome-text); background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: var(--hmi-target-min, 40px); text-align: left; cursor: pointer; }
+.kh-user-pop button:hover, .kh-user-pop button:focus-visible { background: color-mix(in srgb, var(--chrome-text) 10%, transparent); outline: none; }
 .kh-user-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--chrome-raised); border: 1px solid var(--chrome-border); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
 .kh-user-text { display: flex; flex-direction: column; line-height: 1.2; }
 .kh-user-name { font-size: 14px; font-weight: 500; }

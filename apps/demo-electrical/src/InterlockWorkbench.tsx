@@ -1,7 +1,8 @@
 /**
- * A working bench for the interlock view until the real screens land (phase 6):
- * pick a command of the demo plant, see its interlock live from the mock
- * backend, and change the field values it reads.
+ * A development bench for the interlock view: pick a command of the demo
+ * plant and see its interlock live. On the mock backend the field values it
+ * reads can be changed here (the simulator overwrites the ones it drives on
+ * its next step).
  */
 
 import { inputPoints, type CommandKey, type PointId } from "@khorde/hmi-core";
@@ -55,7 +56,7 @@ function FieldControl({ id, backend }: { id: PointId; backend: MockBackend }) {
   );
 }
 
-export function InterlockWorkbench({ commands, backend }: { commands: readonly BenchCommand[]; backend: MockBackend }) {
+export function InterlockWorkbench({ commands, backend }: { commands: readonly BenchCommand[]; backend: MockBackend | null }) {
   const i18n = useI18n();
   const [index, setIndex] = useState(0);
   const cmd = commands[index] ?? commands[0];
@@ -84,10 +85,16 @@ export function InterlockWorkbench({ commands, backend }: { commands: readonly B
       </section>
       <aside className="bench-fields" aria-label="Field values">
         <h2>Field values</h2>
-        <p className="bench-note">Mock backend. Change a value and the interlock is evaluated again.</p>
-        {inputPoints(view.tree).map((id) => (
-          <FieldControl key={id} id={id} backend={backend} />
-        ))}
+        {backend ? (
+          <>
+            <p className="bench-note">Mock backend. Change a value and the interlock is evaluated again.</p>
+            {inputPoints(view.tree).map((id) => (
+              <FieldControl key={id} id={id} backend={backend} />
+            ))}
+          </>
+        ) : (
+          <p className="bench-note">Field values can only be changed on the mock backend.</p>
+        )}
       </aside>
     </div>
   );

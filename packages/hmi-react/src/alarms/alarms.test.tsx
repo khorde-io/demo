@@ -91,6 +91,12 @@ describe("alarm history", () => {
     expect(changes.map((c) => `${c.alarm.instanceId}:${c.kind}`)).toEqual(["b:ack", "a:Set", "b:Set", "c:Reset"]);
   });
 
+  it("lists a state change once when the log also holds its acked copy", () => {
+    const set = alarm("d");
+    const acked = { ...set, acked: true, ackTimestamp: new Date(t0 + 5000) };
+    expect(alarmChanges([set, acked]).map((c) => c.kind)).toEqual(["ack", "Set"]);
+  });
+
   it("exports CSV with quoting", () => {
     const csv = changesToCsv(testI18n, alarmChanges([alarm("x", { area: 'a,"b"' })]));
     expect(csv.split("\n")[0]).toBe("time,priority,area,alarm,name,condition,value,change,by");

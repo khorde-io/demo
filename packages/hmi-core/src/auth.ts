@@ -31,13 +31,19 @@ export function requiredScopes(projectId: string): string[] {
 
 const ROLE_CLAIM = /^urn:zitadel:iam:org:project:(?:[^:]+:)?roles$/;
 
-/** Role names from Zitadel's role claims (`{ "RoleName": { orgId: domain } }`). */
+/**
+ * Role names from the token. Zitadel's own claims map role → orgs
+ * (`{ "RoleName": { orgId: domain } }`); the Khorde hub's token action also
+ * writes a plain `roles` claim, as a list of names or the same map.
+ */
 export function rolesFromClaims(claims: Record<string, unknown>): Set<string> {
   const roles = new Set<string>();
-  for (const [key, value] of Object.entries(claims)) {
-    if (!ROLE_CLAIM.test(key) || typeof value !== "object" || value === null) continue;
-    for (const role of Object.keys(value)) roles.add(role);
-  }
+  const add = (value: unknown) => {
+    if (Array.isArray(value)) for (const r of value) roles.add(String(r));
+    else if (typeof value === "object" && value !== null) for (const r of Object.keys(value)) roles.add(r);
+  };
+  for (const [key, value] of Object.entries(claims)) if (ROLE_CLAIM.test(key)) add(value);
+  add(claims.roles);
   return roles;
 }
 
@@ -91,7 +97,7 @@ export class AuthRequiredError extends Error {
 /** The part of oidc-client-ts's UserManager this module uses (for tests). */
 export interface UserManagerLike {
   getUser(): Promise<User | null>;
-  signinRedirect(): Promise<void>;
+  signinRedirect(args?: { prompt?: string }): Promise<void>;
   signinRedirectCallback(): Promise<User>;
   signinSilent(): Promise<User | null>;
   signoutRedirect(): Promise<void>;
@@ -106,7 +112,14 @@ export interface UserManagerLike {
 export interface Auth extends Readable<AuthState>, Permissions {
   /** Completes a login redirect if this page load is one, else restores the session. */
   init(): Promise<AuthState>;
+  /**
+   * Sends the user to the identity provider, which always shows its account
+   * picker: with another live session in the browser (the control plane uses
+   * the same IdP), it would otherwise sign in with that one without asking.
+   * Also how to switch to another user while signed in.
+   */
   login(): Promise<void>;
+  /** Ends the session at the identity provider too (end-session endpoint), not just here. */
   logout(): Promise<void>;
   /** A valid access token, renewing it silently if needed. */
   getToken(): Promise<string>;
@@ -128,6 +141,7 @@ function userManagerFor(auth: HmiConfig["auth"], origin: string): UserManagerLik
     response_type: "code",
     scope: [...requiredScopes(auth.projectId), ...(auth.extraScopes ?? [])].join(" "),
     automaticSilentRenew: true,
+    revokeTokensOnSignout: true,
     userStore: new WebStorageStateStore({ store: window.localStorage }),
   });
 }
@@ -182,7 +196,7 @@ export function createAuth(config: HmiConfig["auth"], options: AuthOptions = {})
       return state.get();
     },
 
-    login: () => manager.signinRedirect(),
+    login: () => manager.signinRedirect({ prompt: "select_account" }),
 
     async logout() {
       await manager.signoutRedirect();

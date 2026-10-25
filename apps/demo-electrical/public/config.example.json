@@ -1,0 +1,12 @@
+{
+  "siteName": "Ventos da Serra",
+  "auth": {
+    "authority": "http://auth.localhost:9311",
+    "clientId": "<client id of the HMI app on your hub>",
+    "projectId": "khorde_scada"
+  },
+  "api": { "http": "http://localhost:8085/", "ws": "ws://localhost:8085/" },
+  "defaults": { "theme": "dark-grey", "locale": "en" },
+  "themes": ["dark-grey", "range-green", "ink"],
+  "agents": ["vds-substation", "vds-windfarm"]
+}

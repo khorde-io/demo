@@ -12,6 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev -w @khorde/demo-electrical",
+    "dev:mock": "npm run dev:mock -w @khorde/demo-electrical",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces --if-present",
     "lint": "oxlint",

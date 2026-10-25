@@ -1,0 +1,11 @@
+{
+  "siteName": "Ventos da Serra",
+  "auth": {
+    "authority": "https://auth.khorde.io",
+    "clientId": "<client id of the HMI app in your organization>",
+    "projectId": "khorde_scada"
+  },
+  "api": { "http": "https://api.khorde.io/", "ws": "wss://api.khorde.io/ws" },
+  "defaults": { "theme": "dark-grey", "locale": "en" },
+  "themes": ["dark-grey", "range-green", "ink"]
+}

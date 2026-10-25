@@ -77,6 +77,9 @@ export interface HeaderProps {
   onNavigate?: (id: string) => void;
   breadcrumb?: readonly Crumb[];
   user?: { name: string; role: string } | null;
+  /** With either, the user chip opens an account menu. */
+  onSwitchUser?: () => void;
+  onSignOut?: () => void;
   /** IANA zone for the clock; defaults to the browser's. */
   timeZone?: string;
   /** Fixed time, for tests and screenshots. */
@@ -123,7 +126,77 @@ export function bannerAlarm(alarms: readonly Alarm[]): Alarm | null {
   return pick(alarms.filter((a) => !a.acked)) ?? pick(alarms);
 }
 
-export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, timeZone, now: fixedNow, onOpenAlarms, onAck }: HeaderProps) {
+function UserChip({ name, role }: { name: string; role: string }) {
+  return (
+    <>
+      <span className="kh-user-avatar" aria-hidden="true">
+        {initials(name)}
+      </span>
+      <span className="kh-user-text" aria-hidden="true">
+        <span className="kh-user-name">{name}</span>
+        <span className="kh-user-role">{role}</span>
+      </span>
+    </>
+  );
+}
+
+/** The user chip as a menu button: sign in as someone else, or sign out. */
+function UserMenu({ user, onSwitchUser, onSignOut }: { user: { name: string; role: string }; onSwitchUser?: (() => void) | undefined; onSignOut?: (() => void) | undefined }) {
+  const i18n = useI18n();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [open]);
+  const pick = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+  return (
+    <div
+      ref={box}
+      className="kh-user-menu"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="kh-user kh-user--button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={i18n.t("shell.userMenu", { name: user.name, role: user.role })}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <UserChip name={user.name} role={user.role} />
+      </button>
+      {open && (
+        <div className="kh-user-pop" role="menu">
+          {onSwitchUser && (
+            <button type="button" role="menuitem" autoFocus onClick={pick(onSwitchUser)}>
+              {i18n.t("shell.switchUser")}
+            </button>
+          )}
+          {onSignOut && (
+            <button type="button" role="menuitem" autoFocus={!onSwitchUser} onClick={pick(onSignOut)}>
+              {i18n.t("shell.signOut")}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, onSwitchUser, onSignOut, timeZone, now: fixedNow, onOpenAlarms, onAck }: HeaderProps) {
   const i18n = useI18n();
   const { alarms, counts } = useAlarms();
   const now = useNow(fixedNow);
@@ -186,17 +259,14 @@ export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, t
               {i18n.formatDateTime(now, { day: "numeric", month: "short", year: "numeric", ...tz })} · {zoneName(locale, now, timeZone)}
             </span>
           </div>
-          {user && (
-            <div className="kh-user" aria-label={i18n.t("shell.signedInAs", { name: user.name, role: user.role })}>
-              <span className="kh-user-avatar" aria-hidden="true">
-                {initials(user.name)}
-              </span>
-              <span className="kh-user-text" aria-hidden="true">
-                <span className="kh-user-name">{user.name}</span>
-                <span className="kh-user-role">{user.role}</span>
-              </span>
-            </div>
-          )}
+          {user &&
+            (onSwitchUser || onSignOut ? (
+              <UserMenu user={user} onSwitchUser={onSwitchUser} onSignOut={onSignOut} />
+            ) : (
+              <div className="kh-user" aria-label={i18n.t("shell.signedInAs", { name: user.name, role: user.role })}>
+                <UserChip name={user.name} role={user.role} />
+              </div>
+            ))}
         </div>
       </div>
 

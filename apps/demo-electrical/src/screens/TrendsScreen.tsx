@@ -5,7 +5,8 @@ const OIL: PointId[] = ["vds.sub.tr1::oil_temp", "vds.sub.tr2::oil_temp"];
 const FEEDERS: PointId[] = ["vds.sub.mv.a.f1::p_mw", "vds.sub.mv.a.f2::p_mw", "vds.sub.mv.b.f3::p_mw", "vds.sub.mv.b.f4::p_mw"];
 const WINDOW = 10 * 60e3;
 
-export function TrendsPage() {
+/** L4: trends of the values operators compare most. */
+export function TrendsScreen() {
   const i18n = useI18n();
   const name = (id: PointId) => i18n.equipmentName(id.slice(0, id.lastIndexOf("::")));
   const oil = useTrend(OIL, "analogical", WINDOW, name);

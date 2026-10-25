@@ -55,11 +55,16 @@ export function SessionExpired({ logo, onSignIn }: Omit<AuthScreenProps, "site">
   );
 }
 
-export function AccessDenied({ logo, name, onSignOut }: Omit<AuthScreenProps, "site"> & { name: string; onSignOut: () => void }) {
+export function AccessDenied({ logo, name, onSignOut, onSwitchUser }: Omit<AuthScreenProps, "site"> & { name: string; onSignOut: () => void; onSwitchUser?: () => void }) {
   const i18n = useI18n();
   return (
     <Screen logo={logo} title={i18n.t("auth.deniedTitle")}>
       <p>{i18n.t("auth.deniedBody", { name })}</p>
+      {onSwitchUser && (
+        <button type="button" className="kh-auth-btn" onClick={onSwitchUser}>
+          {i18n.t("auth.otherUser")}
+        </button>
+      )}
       <button type="button" className="kh-auth-btn kh-auth-btn--quiet" onClick={onSignOut}>
         {i18n.t("auth.signOut")}
       </button>
@@ -93,7 +98,7 @@ export function AuthGate({ auth, site, logo, children }: AuthScreenProps & { aut
     case "expired":
       return <SessionExpired logo={logo} onSignIn={signIn} />;
     case "denied":
-      return <AccessDenied logo={logo} name={state.user?.name ?? ""} onSignOut={() => void auth.logout()} />;
+      return <AccessDenied logo={logo} name={state.user?.name ?? ""} onSignOut={() => void auth.logout()} onSwitchUser={signIn} />;
     default:
       return <>{children}</>;
   }

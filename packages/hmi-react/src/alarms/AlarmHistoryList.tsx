@@ -20,9 +20,16 @@ export interface AlarmChange {
 /** Splits alarms into their changes (raise/return/event, then ack), newest first. */
 export function alarmChanges(alarms: readonly Alarm[]): AlarmChange[] {
   const out: AlarmChange[] = [];
+  // An ack is logged as a copy of the alarm with `acked` set: its state change is already listed.
+  const seen = new Set<string>();
+  const add = (c: AlarmChange) => {
+    if (seen.has(c.key)) return;
+    seen.add(c.key);
+    out.push(c);
+  };
   for (const a of alarms) {
-    out.push({ key: `${a.instanceId}:${a.state}:${a.timestamp.getTime()}`, at: a.timestamp, kind: a.state, alarm: a });
-    if (a.acked && a.ackTimestamp) out.push({ key: `${a.instanceId}:ack:${a.ackTimestamp.getTime()}`, at: a.ackTimestamp, kind: "ack", alarm: a });
+    add({ key: `${a.instanceId}:${a.state}:${a.timestamp.getTime()}`, at: a.timestamp, kind: a.state, alarm: a });
+    if (a.acked && a.ackTimestamp) add({ key: `${a.instanceId}:ack:${a.ackTimestamp.getTime()}`, at: a.ackTimestamp, kind: "ack", alarm: a });
   }
   return out.sort((x, y) => y.at.getTime() - x.at.getTime());
 }

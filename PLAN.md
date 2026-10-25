@@ -184,7 +184,7 @@ The same build can target any backend, so the URLs are not compiled in. At start
 ```
 
 - **v1 uses the local hub** (values above). Pointing at the SaaS (`https://auth.khorde.io`, `https://api.khorde.io/`, `wss://api.khorde.io/ws`) only takes a different `config.json`.
-- The repo ships `config.local.json` and `config.saas.example.json`. A Vite env variable picks which one the dev server serves.
+- The repo ships `config.example.json` (local hub) and `config.saas.example.json`; the app loads `public/config.json` (git-ignored, it holds the hub's client id), or the path in `VITE_HMI_CONFIG`. `VITE_HMI_BACKEND=mock` (`npm run dev:mock`) runs the plant simulator in the browser instead, with no config.
 
 ## 6. Layer 2: demo project (`apps/demo-electrical`)
 
@@ -274,7 +274,7 @@ TSX composition is the v1 choice because it is the clearest reference for develo
 | 3 | **Core lib** | auth, transport, the point store, alarms, commands, history, agents, and the mock backend, with unit tests. |
 | 4 | **React lib** | Shell, widgets and the electrical and wind symbols, with tests covering every symbol state. |
 | 5 | **Simulator and site config** | The demo plant running against a local hub. |
-| 6 | **Demo screens** | L1 to L4 screens and faceplates wired to live data. |
+| 6 | **Demo screens** | L1 to L4 screens and faceplates wired to live data. Done on the in-browser simulator; against the hub, sign-in and the role check are verified, the live screens still need a run signed in as a test user. |
 | 7 | **Docs and polish** | A "build your own HMI" guide, an ISA-101 rationale page, and accessibility and performance checks (target: 1,000+ points per screen at 1 Hz with no jank). |
 
 ## 9. Open questions
