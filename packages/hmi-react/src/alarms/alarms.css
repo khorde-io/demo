@@ -1,0 +1,38 @@
+/* Alarm list, alarm history and the shared table, button and segmented-control styles. */
+
+.kh-btn {
+  font: inherit; font-weight: 500; min-height: var(--hmi-target-min, 44px); padding: 0 18px; border-radius: 6px;
+  border: 1px solid var(--proc-border); background: var(--proc-surface-2); color: var(--text-value);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; text-decoration: none; box-sizing: border-box;
+}
+.kh-btn:hover:not(:disabled) { border-color: var(--text-label); }
+.kh-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.kh-btn--primary { background: var(--proc-line-live); color: var(--alarm-ink); border-color: var(--proc-line-live); }
+.kh-btn--sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.kh-btn:focus-visible, .kh-link:focus-visible, .kh-seg button:focus-visible, .kh-alarms-filter input:focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }
+.kh-link { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--proc-border); text-underline-offset: 3px; }
+
+.kh-seg { display: inline-flex; border: 1px solid var(--proc-border); border-radius: 8px; overflow: hidden; }
+.kh-seg button { font: inherit; font-size: 13px; min-height: 36px; padding: 0 12px; background: transparent; color: var(--text-label); border: 0; border-left: 1px solid var(--proc-border); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.kh-seg button:first-child { border-left: 0; }
+.kh-seg button[aria-pressed="true"] { background: var(--proc-surface-2); color: var(--text-value); font-weight: 600; }
+
+.kh-alarms { display: flex; flex-direction: column; gap: 12px; min-width: 0; color: var(--text-value); }
+.kh-alarms-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.kh-alarms-filter { display: inline-flex; align-items: center; gap: 8px; color: var(--text-label); margin-left: auto; }
+.kh-alarms-filter input { font: inherit; min-height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--proc-border); background: var(--proc-bg); color: var(--text-value); width: 220px; }
+.kh-alarms-range { font-variant-numeric: tabular-nums; }
+.kh-alarms-count { color: var(--text-label); margin-right: auto; }
+.kh-alarms-foot { margin: 0; color: var(--text-label); font-size: 13px; }
+
+.kh-table-wrap { overflow: auto; min-width: 0; border: 1px solid var(--proc-border); border-radius: 10px; }
+.kh-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.kh-table th { text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-label); padding: 10px 12px; border-bottom: 1px solid var(--proc-border); position: sticky; top: 0; background: var(--proc-surface); }
+.kh-table td { padding: 8px 12px; border-bottom: 1px solid var(--proc-border); vertical-align: middle; }
+.kh-table tbody tr:last-child td { border-bottom: 0; }
+.kh-table .kh-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kh-col-priority { width: 48px; }
+.kh-col-action { width: 72px; text-align: right; }
+.kh-row--unacked td { font-weight: 600; }
+.kh-row--selected td { background: var(--proc-surface-2); }
+.kh-empty { margin: 0; padding: 16px; color: var(--text-label); }

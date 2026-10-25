@@ -90,8 +90,9 @@ export function mergeAlarm(list: readonly Alarm[], incoming: Alarm, isActive: Ac
   return sortNewestFirst([...rest, merged]);
 }
 
+/** Newest first; alarms raised together put the most urgent first. */
 function sortNewestFirst(list: Alarm[]): Alarm[] {
-  return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime() || a.priority - b.priority);
 }
 
 export interface AlarmFilter {

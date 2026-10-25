@@ -17,7 +17,7 @@ const stateClass = (s: NodeState | null) => (s === "PERMIT" ? "permit" : s === "
 
 /** Fits text into a gate; the full text stays in the gate's tooltip and in the list. */
 function fit(text: string, width: number): string {
-  const max = Math.floor(width / 7.1);
+  const max = Math.floor(width / 6.8);
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 

@@ -22,3 +22,17 @@ export { InterlockLadder, type InterlockLadderProps } from "./interlock/Interloc
 export { useInterlock } from "./interlock/useInterlock.ts";
 export { layoutLadder, DEFAULT_METRICS, type Ladder, type LadderMetrics, type GateBox, type FrameBox, type Wire } from "./interlock/layout.ts";
 export { describeCondition, currentValueText, OP_SYMBOL, type ConditionText } from "./interlock/labels.ts";
+
+// alarms
+export { AlarmList, type AlarmListProps, type AreaFilter } from "./alarms/AlarmList.tsx";
+export { AlarmHistoryList, alarmChanges, changesToCsv, type AlarmChange, type AlarmHistoryListProps } from "./alarms/AlarmHistoryList.tsx";
+
+// faceplate and commands
+export { Faceplate, type FaceplateProps, type FaceplateTab } from "./faceplate/Faceplate.tsx";
+export { CommandDialog, type CommandDialogProps } from "./faceplate/CommandDialog.tsx";
+
+// trends
+export { Sparkline, TrendChart, niceTicks, useTrend, type SparklineProps, type TrendChartProps, type TrendSeries, type TrendState } from "./trend/trend.tsx";
+
+// sign-in
+export { AccessDenied, AuthGate, LoginScreen, SessionExpired, gateView, type GateView } from "./auth/AuthGate.tsx";

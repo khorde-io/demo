@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import type { AlarmSnapshot, ConnectionState, Hmi, I18n, PointId, PointValue, Readable } from "@khorde/hmi-core";
 
-export type HmiServices = Pick<Hmi, "i18n"> & Partial<Pick<Hmi, "backend" | "points" | "auth" | "commands" | "alarms" | "theme">>;
+export type HmiServices = Pick<Hmi, "i18n"> & Partial<Pick<Hmi, "backend" | "points" | "auth" | "commands" | "alarms" | "history" | "theme">>;
 
 const HmiContext = createContext<HmiServices | null>(null);
 

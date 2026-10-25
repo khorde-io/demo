@@ -14,6 +14,7 @@ const SHORT: [RegExp, string][] = [
   [/\b(line )?earthing switch\b/, "ES"],
   [/\b(line )?disconnector\b/, "DS"],
   [/^Bus coupler\b/, "Coupler"],
+  [/^Feeder (F\d)$/, "$1"],
 ];
 
 export function shortName(label: string): string {

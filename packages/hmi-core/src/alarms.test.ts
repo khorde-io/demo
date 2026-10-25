@@ -22,6 +22,14 @@ const alarm = (over: Partial<Alarm>): Alarm => ({
 });
 
 describe("mergeAlarm", () => {
+  it("lists newest first, the most urgent first when raised together", () => {
+    const t = new Date("2026-10-25T12:00:00Z");
+    let list = mergeAlarm([], alarm({ instanceId: "p3", priority: 3, timestamp: t }));
+    list = mergeAlarm(list, alarm({ instanceId: "p1", priority: 1, timestamp: t }));
+    list = mergeAlarm(list, alarm({ instanceId: "new", priority: 3, timestamp: new Date(t.getTime() + 1000) }));
+    expect(list.map((a) => a.instanceId)).toEqual(["new", "p1", "p3"]);
+  });
+
   it("keeps a returned alarm until it is acknowledged", () => {
     let list = mergeAlarm([], alarm({}));
     list = mergeAlarm(list, alarm({ state: "Reset" }));

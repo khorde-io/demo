@@ -1,0 +1,11 @@
+/* Sign-in screens: application chrome, brand colours allowed. */
+
+.kh-auth { min-height: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: var(--chrome-bg); color: var(--chrome-text); font-family: var(--hmi-font); }
+.kh-auth-card { width: min(440px, 100%); display: flex; flex-direction: column; gap: 16px; }
+.kh-auth-card h1 { margin: 0; font-size: 32px; font-weight: 600; text-wrap: balance; }
+.kh-auth-card p { margin: 0; color: var(--chrome-text-muted); line-height: 1.5; }
+.kh-auth-error { color: var(--chrome-text) !important; font-weight: 600; }
+.kh-auth-btn { font: inherit; font-weight: 600; min-height: 48px; border-radius: 10px; border: 0; background: var(--chrome-accent); color: var(--khorde-ink, #050402); cursor: pointer; }
+.kh-auth-btn:disabled { opacity: 0.6; cursor: progress; }
+.kh-auth-btn--quiet { background: transparent; color: var(--chrome-text); border: 1px solid var(--chrome-border); }
+.kh-auth-btn:focus-visible { outline: 3px solid var(--chrome-text); outline-offset: 3px; }

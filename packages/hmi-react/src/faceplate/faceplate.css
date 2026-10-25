@@ -1,0 +1,50 @@
+/* Faceplate frame and command dialog. */
+
+.kh-scrim { position: absolute; inset: 0; background: var(--proc-scrim); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 24px; box-sizing: border-box; }
+
+.kh-faceplate { background: var(--proc-surface); border: 1px solid var(--proc-border); color: var(--text-value); display: flex; flex-direction: column; outline: none; box-sizing: border-box; }
+.kh-faceplate--side { position: absolute; top: 0; right: 0; bottom: 0; width: min(640px, 100%); border-width: 0 0 0 1px; z-index: 10; }
+.kh-faceplate--modal { width: min(720px, 100%); max-height: 100%; border-radius: 16px; box-shadow: 0 12px 32px rgba(0, 8, 7, 0.4); }
+.kh-fp-head { padding: 20px 24px 0; display: flex; align-items: flex-start; gap: 16px; }
+.kh-fp-titles { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.kh-fp-titles h2 { margin: 0; font-size: 24px; font-weight: 600; text-wrap: balance; }
+.kh-fp-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-label); }
+.kh-fp-sub { font-family: var(--hmi-mono); font-size: 13px; color: var(--text-label); overflow-wrap: anywhere; }
+.kh-fp-close { width: 44px; height: 44px; border-radius: 6px; border: 1px solid var(--proc-border); background: transparent; display: grid; place-items: center; cursor: pointer; flex: none; }
+.kh-fp-close path { stroke: var(--text-value); stroke-width: 2; stroke-linecap: round; }
+.kh-fp-tabs { display: flex; gap: 4px; padding: 16px 24px 0; border-bottom: 1px solid var(--proc-border); overflow-x: auto; }
+.kh-fp-tabs button { font: inherit; font-size: 14px; height: 44px; padding: 0 14px; background: transparent; border: 0; border-bottom: 3px solid transparent; color: var(--text-label); cursor: pointer; white-space: nowrap; }
+.kh-fp-tabs button[aria-selected="true"] { color: var(--text-value); font-weight: 600; border-bottom-color: var(--text-value); }
+.kh-fp-body { padding: 16px 24px 24px; overflow: auto; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.kh-faceplate :focus-visible, .kh-cmd :focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }
+
+.kh-cmd { width: min(640px, 100%); max-height: 100%; overflow: auto; box-sizing: border-box; background: var(--proc-surface); border: 1px solid var(--proc-border); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 18px; color: var(--text-value); box-shadow: 0 12px 32px rgba(0, 8, 7, 0.4); outline: none; }
+.kh-cmd-head { display: flex; flex-direction: column; gap: 6px; }
+.kh-cmd-head h2 { margin: 0; font-size: 26px; font-weight: 600; }
+.kh-cmd-preview { padding: 18px; border-radius: 10px; background: var(--proc-bg); }
+.kh-cmd-facts { margin: 0; display: grid; grid-template-columns: 120px minmax(0, 1fr); row-gap: 12px; column-gap: 16px; font-size: 15px; }
+.kh-cmd-facts dt { color: var(--text-label); }
+.kh-cmd-facts dd { margin: 0; }
+.kh-cmd-blocked { color: var(--alarm-interlock); }
+.kh-cmd-value { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.kh-cmd-value input { font: inherit; width: 140px; min-height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--proc-border); background: var(--proc-bg); color: var(--text-value); }
+.kh-cmd-value input[aria-invalid="true"] { border-color: var(--alarm-p1); }
+.kh-cmd-bypass { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 10px; border: 2px solid var(--alarm-interlock); }
+.kh-cmd-bypass input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--alarm-interlock); }
+.kh-cmd-bypass span { display: flex; flex-direction: column; gap: 2px; }
+.kh-cmd-note, .kh-cmd-hint { margin: 0; color: var(--text-label); font-size: 13px; }
+.kh-cmd-error { color: var(--text-value); font-size: 13px; font-weight: 600; }
+.kh-cmd-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 4px; }
+
+.kh-cmd-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.kh-cmd-step { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.kh-cmd-step-text { display: flex; flex-direction: column; }
+.kh-cmd-step-ico { width: 22px; height: 22px; border-radius: 50%; box-sizing: border-box; border: 3px solid var(--proc-border); }
+.kh-cmd-step--done .kh-cmd-step-ico { background: var(--proc-line-live); border-color: var(--proc-line-live); }
+.kh-cmd-step--failed .kh-cmd-step-ico { background: transparent; border-color: var(--alarm-p1); }
+.kh-cmd-step--current .kh-cmd-step-ico { border-top-color: var(--text-value); }
+@media (prefers-reduced-motion: no-preference) { .kh-cmd-step--current .kh-cmd-step-ico { animation: kh-spin 1s linear infinite; } }
+@keyframes kh-spin { to { transform: rotate(360deg); } }
+.kh-cmd-result { margin: 0; font-size: 18px; font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
+.kh-cmd-result--blocked { color: var(--alarm-interlock); }
+.kh-num { font-variant-numeric: tabular-nums; }

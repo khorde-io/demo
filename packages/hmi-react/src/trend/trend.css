@@ -1,0 +1,16 @@
+/* Trends: grey lines, dash patterns tell series apart. */
+
+.kh-spark { display: inline-block; vertical-align: middle; overflow: visible; }
+.kh-spark-line { fill: none; stroke: var(--proc-static); stroke-width: 1.5; stroke-linejoin: round; }
+.kh-spark-dot { fill: var(--text-value); }
+
+.kh-trend { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.kh-trend-svg { width: 100%; height: auto; display: block; font-family: var(--hmi-font); }
+.kh-trend-grid { stroke: var(--proc-border); stroke-width: 1; }
+.kh-trend-tick { fill: var(--text-label); font-size: 11px; font-variant-numeric: tabular-nums; }
+.kh-trend-line { fill: none; stroke: var(--proc-line-live); stroke-width: 2; stroke-linejoin: round; }
+.kh-trend-limit { stroke: var(--text-label); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.kh-trend-limit-t { fill: var(--text-label); font-size: 11px; }
+.kh-trend-msg { fill: var(--text-label); font-size: 14px; }
+.kh-trend-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-label); }
+.kh-trend-legend span { display: inline-flex; align-items: center; gap: 6px; }
