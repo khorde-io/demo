@@ -1,0 +1,485 @@
+"""
+Agent liveness derived from the last heartbeat.
+"""
+enum AgentConnectivity {
+    online
+    offline
+    unknown
+}
+
+"""
+Last recorded agent heartbeat and derived connectivity.
+"""
+type AgentHeartbeat {
+    """
+    Agent name (config / Zitadel username).
+    """
+    agent: String!
+    """
+    When the last heartbeat was received.
+    """
+    lastSeenAt: String
+    """
+    Derived connectivity status.
+    """
+    status: AgentConnectivity!
+}
+
+"""
+Alarm representation after an evaluation
+"""
+type Alarm {
+    """
+    Alarm name
+    """
+    name: String!
+    """
+    Area of the alarm
+    """
+    area: String!
+    """
+    Subcondition identity
+    """
+    condition: String!
+    """
+    Identity of this Set (copied onto the matching Reset).
+    """
+    instanceId: UUID!
+    """
+    Timestamp of last modification
+    """
+    timestamp: DateTime!
+    """
+    Alarm state
+    """
+    state: AlarmState!
+    """
+    Value of the associated measurement
+    """
+    value: Float!
+    """
+    Alarm severity
+    """
+    severity: AlarmSeverity!
+    """
+    Acknowledge status of this instance (joined from the ack table).
+    """
+    ack: AlarmAck!
+    """
+    When this instance was acknowledged, if ever.
+    """
+    ackTimestamp: DateTime
+    """
+    JWT `sub` of the user who last acknowledged this instance, if any.
+    """
+    actorId: String
+    """
+    Display name for [`Self::actor_id`], if any.
+    """
+    actorDisplay: String
+}
+
+"""
+Alarms acknowledge status
+"""
+enum AlarmAck {
+    """
+    Alarm acknowledged
+    """
+    Ack
+    """
+    Alarm not acknowledged
+    """
+    NotAck
+}
+
+input AlarmFilter {
+    timestamp: TimestampFilter!
+}
+
+"""
+Severity of the alarm
+"""
+enum AlarmSeverity {
+    high
+    medium
+    low
+}
+
+"""
+State of the alarm
+"""
+enum AlarmState {
+    Set
+    Reset
+    Event
+}
+
+type CommandInterlockDetail {
+    agent: String!
+    equipment: String!
+    name: String!
+    hasInterlock: Boolean!
+    outcome: InterlockOutcome!
+    key: String
+    description: String
+    graph: JSON
+    nodeStates: [NodeStateEntry!]!
+}
+
+type CommandInterlockState {
+    agent: String!
+    equipment: String!
+    name: String!
+    hasInterlock: Boolean!
+    outcome: InterlockOutcome!
+}
+
+input CommandKeyInput {
+    agent: String!
+    equipment: String!
+    name: String!
+}
+
+"""
+A datetime with timezone offset.
+
+The input is a string in RFC3339 format, e.g. "2022-01-12T04:00:19.12345Z"
+or "2022-01-12T04:00:19+03:00". The output is also a string in RFC3339
+format, but it is always normalized to the UTC (Z) offset, e.g.
+"2022-01-12T04:00:19.12345Z".
+"""
+scalar DateTime
+
+"""
+GraphQL mirror of [`scada_types::interlock::InterlockOutcome`].
+"""
+enum InterlockOutcome {
+    PERMIT
+    BLOCK
+}
+
+"""
+A scalar that can represent any JSON value.
+"""
+scalar JSON
+
+input MeasFilter {
+    timestamp: TimestampFilter
+    name: String
+}
+
+"""
+Representation of a generic measurement
+"""
+type Measurement {
+    """
+    Measurement name
+    """
+    name: String!
+    """
+    Measurement equipment
+    """
+    equipment: String!
+    """
+    Measurement timestamp
+    """
+    timestamp: String!
+    """
+    Measurement type
+    """
+    type: MeasurementType!
+    """
+    Measurement value
+    """
+    value: JSON!
+    """
+    Measurement quality
+    """
+    quality: String!
+}
+
+"""
+Representation of a generic measurement
+"""
+enum MeasurementType {
+    discrete
+    analogical
+}
+
+type Mutation {
+    """
+    Acknowledge an alarm instance.
+    """
+    almAck(instanceId: UUID!): Boolean!
+    """
+    Send an analogical command.
+    """
+    analogicalCommandRequest(
+        agent: String!
+        name: String!
+        equipment: String!
+        value: Float!
+        bypassInterlock: Boolean! = false
+    ): String!
+    """
+    Send a discrete command.
+    """
+    discreteCommandRequest(
+        agent: String!
+        name: String!
+        equipment: String!
+        bypassInterlock: Boolean! = false
+    ): String!
+}
+
+"""
+GraphQL mirror of [`scada_types::interlock::NodeState`].
+"""
+enum NodeState {
+    PERMIT
+    BLOCK
+    BAD_QUALITY
+}
+
+type NodeStateEntry {
+    path: String!
+    state: NodeState!
+}
+
+type Query {
+    """
+    List the history of alarms.
+    """
+    alm(filter: AlarmFilter): [Alarm!]!
+    """
+    List the current active alarms.
+
+    Pass `areas` to limit results (same segment wildcards as
+    `almSubscribe`: `*` one segment, trailing `>` for nested areas). Omit or
+    pass an empty list to include every area.
+    """
+    activeAlm(areas: [String!]! = []): [Alarm!]!
+    """
+    List the history of discrete measurements.
+    """
+    histDiscrete(filter: MeasFilter): [Measurement!]!
+    """
+    List the history of analogical measurements.
+    """
+    histAnalogical(filter: MeasFilter): [Measurement!]!
+    """
+    Measurements stored in the registry for each agent.
+
+    Omit `agents` (or pass null) to list every registered agent. Pass a
+    non-empty `agents` list to restrict to those ids. Pass an empty list
+    `[]` to get no rows.
+    """
+    registeredMeasurements(agents: [String!]): [RegisteredMeasurement!]!
+    """
+    List the history of request updates.
+    """
+    requestUpdate(requestId: String!): [RequestUpdate!]!
+    """
+    Commands stored in the registry for each agent (from client config).
+
+    Omit `agents` (or pass null) to list every registered agent. Pass a
+    non-empty `agents` list to restrict to those ids. Pass an empty list
+    `[]` to get no rows.
+    """
+    registeredCommands(agents: [String!]): [RegisteredCommand!]!
+    """
+    State of command interlocks.
+    """
+    commandInterlockStates(
+        commands: [CommandKeyInput!]!
+    ): [CommandInterlockState!]!
+    """
+    Details of a command interlock.
+    """
+    commandInterlockDetail(
+        agent: String!
+        equipment: String!
+        name: String!
+    ): CommandInterlockDetail!
+    """
+    State of agents liveness.
+    """
+    agentHeartbeats(agents: [String!]!): [AgentHeartbeat!]!
+    """
+    State of site / leaf liveness.
+    """
+    siteHeartbeats(sites: [String!]!): [SiteHeartbeat!]!
+}
+
+"""
+One command registered for an agent (from config / cache registry).
+"""
+type RegisteredCommand {
+    agent: String!
+    equipment: String!
+    name: String!
+}
+
+"""
+One measurement registered for an agent (from config / cache registry).
+"""
+type RegisteredMeasurement {
+    agent: String!
+    equipment: String!
+    name: String!
+    type: MeasurementType!
+}
+
+"""
+Request update
+"""
+type RequestUpdate {
+    """
+    Message
+    """
+    msg: String!
+    """
+    State
+    """
+    state: RequestUpdateState!
+    """
+    Timestamp
+    """
+    timestamp: DateTime!
+    """
+    Name
+    """
+    name: String!
+    """
+    Id
+    """
+    id: String!
+    """
+    Actor id (JWT `sub`) when recorded
+    """
+    actorId: String
+    """
+    Actor display name when recorded
+    """
+    actorDisplay: String
+}
+
+"""
+Request update state
+"""
+enum RequestUpdateState {
+    """
+    Forwarded to agent
+    """
+    FORWARDED_TO_AGENT
+    """
+    Forwarded to agent with interlock bypass
+    """
+    FORWARDED_TO_AGENT_INTERLOCK_BYPASSED
+    """
+    Agent received
+    """
+    AGENT_RECEIVED
+    """
+    Agent sent
+    """
+    AGENT_SENT
+    """
+    Request success
+    """
+    REQUEST_SUCCESS
+    """
+    Request timeout
+    """
+    REQUEST_TIMEOUT
+    """
+    Request error
+    """
+    REQUEST_ERROR
+}
+
+"""
+Last recorded site heartbeat and derived connectivity.
+"""
+type SiteHeartbeat {
+    """
+    Site leaf service-account username.
+    """
+    site: String!
+    """
+    When the last heartbeat was received.
+    """
+    lastSeenAt: String
+    """
+    Derived connectivity status.
+    """
+    status: AgentConnectivity!
+}
+
+type Subscription {
+    """
+    Subscribe to alarms.
+
+    Pass `areas` to limit the stream to those alarm areas. Dot-separated
+    segments are supported: `*` matches one segment; `>` as the last segment
+    matches that prefix and all nested areas. Omit or pass an empty list to
+    receive alarms from every area.
+    """
+    almSubscribe(areas: [String!]! = []): Alarm!
+    """
+    Subscribe to measurements by dot-separated paths (`<equipment>.<name>`).
+
+    `*` matches one segment (e.g. `area1.*.temp`);
+    `>` as the last segment  matches that prefix and all nested paths (e.g.
+    `area1.>`). Both can be combined (e.g. `area1.*.>`).
+    """
+    measByPaths(paths: [String!]!): Measurement!
+    """
+    Subscribe to measurements by tag
+    """
+    measByTag(tag: String!): Measurement!
+    """
+    Subscribe to agent heartbeats.
+    """
+    agentHeartbeatSubscribe(agents: [String!]!): AgentHeartbeat!
+    """
+    Subscribe to site heartbeats.
+    """
+    siteHeartbeatSubscribe(sites: [String!]!): SiteHeartbeat!
+}
+
+input TimestampFilter {
+    from: String
+    to: String
+}
+
+"""
+A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
+Strings within GraphQL. UUIDs are used to assign unique identifiers to
+entities without requiring a central allocating authority.
+
+# References
+
+* [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+* [RFC4122: A Universally Unique Identifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+"""
+scalar UUID
+
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Provides a scalar specification URL for specifying the behavior of custom scalar types.
+"""
+directive @specifiedBy(url: String!) on SCALAR
+schema {
+    query: Query
+    mutation: Mutation
+    subscription: Subscription
+}

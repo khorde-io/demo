@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# devenv / direnv
+.devenv*
+devenv.local.nix
+.direnv/
+.pre-commit-config.yaml
+
+.DS_Store

@@ -1,0 +1,38 @@
+/* Range Green ground with Concrete-tinted greys. */
+[data-theme="range-green"] {
+  /* Process area */
+  --proc-bg: #062a27;
+  --proc-surface: #0c3430;
+  --proc-surface-2: #133e39;
+  --proc-border: #255049;
+  --proc-line-live: #e6e6e0;
+  --proc-line-dead: var(--khorde-concrete);
+  --proc-static: #a6a695;
+  --proc-fill-closed: #e6e6e0;
+  --proc-band-normal: #1f4a44;
+  --proc-track: #021c1a;
+  --proc-scrim: rgba(0, 14, 13, 0.62);
+
+  /* Text */
+  --text-value: #f4f4f0;
+  --text-label: #b9b9ab;
+  --text-strong: #ffffff;
+
+  /* Alarms. P3 is a light blue here: the design system's teal is too close
+     in hue to this green ground. */
+  --alarm-p1: var(--danger);
+  --alarm-p2: var(--warning);
+  --alarm-p3: #78b4ff;
+  --alarm-interlock: var(--violet-light);
+  --alarm-ink: var(--khorde-ink);
+
+  /* Application chrome: darker than the ground so it still separates */
+  --chrome-bg: var(--secondary-darkest);
+  --chrome-raised: var(--khorde-teal-800);
+  --chrome-strip: #031f1c;
+  --chrome-accent: var(--khorde-green);
+  --chrome-text: var(--khorde-white);
+  --chrome-text-muted: var(--khorde-green-light);
+  --chrome-border: rgba(231, 231, 231, 0.16);
+  --focus-color: var(--khorde-green);
+}

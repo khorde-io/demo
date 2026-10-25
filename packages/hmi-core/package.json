@@ -1,0 +1,17 @@
+{
+  "name": "@khorde/hmi-core",
+  "version": "0.1.0",
+  "description": "Framework-agnostic Khorde HMI core: auth, transport, points, alarms, commands, history, themes, i18n.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@khorde/hmi-theme": "0.1.0"
+  }
+}

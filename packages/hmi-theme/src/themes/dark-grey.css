@@ -1,0 +1,38 @@
+/* Neutral dark grey (ISA-101 control room). Also the fallback on :root. */
+:root,
+[data-theme="dark-grey"] {
+  /* Process area */
+  --proc-bg: #2b2f2f;
+  --proc-surface: #333838;
+  --proc-surface-2: #3c4242;
+  --proc-border: #4b5252;
+  --proc-line-live: #e1e6e6;
+  --proc-line-dead: #737c7c;
+  --proc-static: #9aa3a3;
+  --proc-fill-closed: #e1e6e6;
+  --proc-band-normal: #4f5757;
+  --proc-track: #232727;
+  --proc-scrim: rgba(10, 12, 12, 0.62);
+
+  /* Text */
+  --text-value: #f2f5f5;
+  --text-label: #a9b2b2;
+  --text-strong: #ffffff;
+
+  /* Alarms: the only saturated colours in process graphics */
+  --alarm-p1: var(--danger);
+  --alarm-p2: var(--warning);
+  --alarm-p3: var(--info);
+  --alarm-interlock: var(--violet-light);
+  --alarm-ink: var(--khorde-ink);
+
+  /* Application chrome */
+  --chrome-bg: var(--khorde-teal-900);
+  --chrome-raised: var(--khorde-teal-800);
+  --chrome-strip: #1f2323;
+  --chrome-accent: var(--khorde-green);
+  --chrome-text: var(--khorde-white);
+  --chrome-text-muted: var(--khorde-green-light);
+  --chrome-border: rgba(231, 231, 231, 0.16);
+  --focus-color: var(--khorde-green);
+}

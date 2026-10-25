@@ -1,0 +1,37 @@
+/* Ink lifted out of black, with Concrete-tinted greys. */
+[data-theme="ink"] {
+  /* Process area */
+  --proc-bg: #1b1b17;
+  --proc-surface: #24241f;
+  --proc-surface-2: #2d2d27;
+  --proc-border: #3f3f36;
+  --proc-line-live: #e6e6e0;
+  --proc-line-dead: var(--khorde-concrete);
+  --proc-static: #a6a695;
+  --proc-fill-closed: #e6e6e0;
+  --proc-band-normal: #44443a;
+  --proc-track: #10100d;
+  --proc-scrim: rgba(5, 4, 2, 0.66);
+
+  /* Text */
+  --text-value: #f4f4f0;
+  --text-label: #b9b9ab;
+  --text-strong: #ffffff;
+
+  /* Alarms */
+  --alarm-p1: var(--danger);
+  --alarm-p2: var(--warning);
+  --alarm-p3: var(--info);
+  --alarm-interlock: var(--violet-light);
+  --alarm-ink: var(--khorde-ink);
+
+  /* Application chrome */
+  --chrome-bg: var(--khorde-teal-900);
+  --chrome-raised: var(--khorde-teal-800);
+  --chrome-strip: #10100d;
+  --chrome-accent: var(--khorde-green);
+  --chrome-text: var(--khorde-white);
+  --chrome-text-muted: var(--khorde-green-light);
+  --chrome-border: rgba(231, 231, 231, 0.16);
+  --focus-color: var(--khorde-green);
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@khorde/hmi-react",
+  "version": "0.1.0",
+  "description": "React bindings, application shell, widgets and symbols for Khorde HMIs.",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@khorde/hmi-core": "0.1.0",
+    "@khorde/hmi-theme": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

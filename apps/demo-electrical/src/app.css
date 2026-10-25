@@ -1,0 +1,75 @@
+body {
+  margin: 0;
+}
+
+.scaffold {
+  min-height: 100vh;
+  background: var(--proc-bg);
+}
+
+.scaffold-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 56px;
+  padding: 0 var(--space-6);
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.scaffold-title {
+  font-size: var(--hmi-text-md);
+  font-weight: var(--weight-semibold);
+  flex: 1 1 auto;
+}
+
+.scaffold-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--chrome-text-muted);
+}
+
+.scaffold-picker select {
+  font: inherit;
+  min-height: var(--hmi-target-min);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-raised);
+  color: var(--chrome-text);
+}
+
+.scaffold-picker select:focus-visible {
+  outline: 3px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.scaffold-tokens {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.scaffold-tokens li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-label);
+}
+
+.scaffold-tokens code {
+  font-family: var(--hmi-mono);
+  font-size: var(--hmi-text-xs);
+}
+
+.scaffold-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--proc-border);
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo-electrical",
+      "runtimeExecutable": "devenv",
+      "runtimeArgs": ["shell", "--", "npm", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

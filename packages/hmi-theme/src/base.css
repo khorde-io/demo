@@ -1,0 +1,28 @@
+/*
+ * Theme-independent HMI scale. A theme may override any of these (for
+ * example a large-text theme), but does not have to.
+ */
+:root {
+  color-scheme: dark;
+
+  --hmi-font: var(--font-sans);
+  --hmi-mono: var(--font-mono);
+  --hmi-text-xs: 12px;
+  --hmi-text-sm: 14px;
+  --hmi-text-md: 16px;
+  --hmi-text-lg: 20px;
+  --hmi-text-xl: 28px;
+
+  --hmi-stroke-live: 3px;
+  --hmi-stroke-dead: 2px;
+  --hmi-stroke-bus: 8px;
+  --hmi-radius: var(--radius-md);
+  --hmi-target-min: 44px;
+}
+
+html {
+  background: var(--proc-bg);
+  color: var(--text-value);
+  font-family: var(--hmi-font);
+  font-size: var(--hmi-text-sm);
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@khorde/hmi-theme",
+  "version": "0.1.0",
+  "description": "Khorde HMI theme tokens: Khorde brand plus ISA-101 process palettes.",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./index.css": "./src/index.css",
+    "./brand.css": "./src/brand.css",
+    "./base.css": "./src/base.css",
+    "./themes/*.css": "./src/themes/*.css"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
