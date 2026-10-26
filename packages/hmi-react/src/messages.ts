@@ -146,6 +146,12 @@ export const reactMessages = {
     signOut: "Sign out",
     otherUser: "Sign in as another user",
   },
+  commandButton: {
+    interlocked: "Interlocked",
+    unknown: "Interlock unknown",
+    why: "Why?",
+    whyBlocked: "Why blocked?",
+  },
   tile: {
     power: "{value} MW",
     setpoint: "Setpoint {value} MW",

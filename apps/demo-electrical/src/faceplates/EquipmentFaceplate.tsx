@@ -15,6 +15,7 @@ import {
   SymbolSvg,
   useHmi,
   useI18n,
+  useInterlockStates,
   usePoint,
   type FaceplateTab,
 } from "@khorde/hmi-react";
@@ -81,15 +82,18 @@ function BayControl({ bay, device, cmd }: { bay: Bay; device: string | null; cmd
   const canOperate = useHmi().auth?.can("operate") ?? false;
   const devices = devicesOf(bay);
   const explainedVerb = cmd.explained?.name.endsWith("open") ? "Open" : "Close";
+  const commandsOf = (equipment: string): CommandSpec[] => [
+    { equipment, name: "pos.open", verb: "Open" },
+    { equipment, name: "pos.close", verb: "Close" },
+  ];
+  // One watcher, and one hub query, for every command on the faceplate.
+  const interlockOf = useInterlockStates(devices.flatMap((d) => commandsOf(d.equipment)).map(commandKey));
   return (
     <>
       <ul className="fp-devices">
         {devices.map((d) => {
           const name = i18n.equipmentName(d.equipment);
-          const commands: CommandSpec[] = [
-            { equipment: d.equipment, name: "pos.open", verb: "Open" },
-            { equipment: d.equipment, name: "pos.close", verb: "Close" },
-          ];
+          const commands = commandsOf(d.equipment);
           return (
             <li key={d.equipment} className={device === d.equipment ? "fp-device--focus" : undefined}>
               <DeviceSymbol equipment={d.equipment} kind={d.kind} />
@@ -101,6 +105,7 @@ function BayControl({ bay, device, cmd }: { bay: Bay; device: string | null; cmd
                 commands={commands}
                 canOperate={canOperate}
                 explained={cmd.explained}
+                interlockOf={interlockOf}
                 onCommand={(c) => cmd.setDialog({ spec: c, title: `${c.verb} ${name}` })}
                 onExplain={cmd.setExplained}
               />
@@ -162,18 +167,21 @@ function TransformerControl({ id, cmd }: { id: string; cmd: Commands }) {
   const i18n = useI18n();
   const canOperate = useHmi().auth?.can("operate") ?? false;
   const name = i18n.equipmentName(id);
+  const commands: CommandSpec[] = [
+    { equipment: id, name: "tap.raise", verb: "Raise" },
+    { equipment: id, name: "tap.lower", verb: "Lower" },
+  ];
+  const interlockOf = useInterlockStates(commands.map(commandKey));
   return (
     <>
       <div className="fp-row">
         <span className="label">Tap position</span>
         <TapValue id={pointId(id, "tap")} />
         <CommandButtons
-          commands={[
-            { equipment: id, name: "tap.raise", verb: "Raise" },
-            { equipment: id, name: "tap.lower", verb: "Lower" },
-          ]}
+          commands={commands}
           canOperate={canOperate}
           explained={cmd.explained}
+          interlockOf={interlockOf}
           onCommand={(c) => cmd.setDialog({ spec: c, title: `${c.verb} the ${name.split(" ·")[0]} tap` })}
           onExplain={cmd.setExplained}
         />
@@ -232,11 +240,12 @@ function TurbineControl({ id, cmd }: { id: string; cmd: Commands }) {
   const current = typeof sp?.value === "number" ? sp.value : RATED_KW;
   const curtail: CommandSpec = { equipment: id, name: "curtail.setpoint", verb: "Set", analog: { min: 0, max: RATED_KW, unit: "kW", step: 100, initial: current } };
   const verbOf = (key: CommandKey | null) => TURBINE_COMMANDS(id).find((c) => c.name === key?.name)?.verb ?? "Set";
+  const interlockOf = useInterlockStates(TURBINE_COMMANDS(id).map(commandKey));
   return (
     <>
       <div className="fp-row">
         <span className="label">Operation</span>
-        <CommandButtons commands={TURBINE_COMMANDS(id)} canOperate={canOperate} explained={cmd.explained} onCommand={(c) => cmd.setDialog({ spec: c, title: `${c.verb} ${name}` })} onExplain={cmd.setExplained} />
+        <CommandButtons commands={TURBINE_COMMANDS(id)} canOperate={canOperate} explained={cmd.explained} interlockOf={interlockOf} onCommand={(c) => cmd.setDialog({ spec: c, title: `${c.verb} ${name}` })} onExplain={cmd.setExplained} />
       </div>
       <div className="fp-row">
         <span className="label">Curtailment setpoint</span>

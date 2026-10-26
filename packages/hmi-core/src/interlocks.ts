@@ -277,6 +277,106 @@ export function createInterlockWatcher(
   };
 }
 
+// ── live state of many commands ───────────────────────────────────────────
+
+/**
+ * What a command button shows: `none` (no interlock), `permit`, `block`, or
+ * `unknown` when the HMI cannot trust the answer (not loaded yet, the query
+ * failed, or an input is stale because its agent or the link is down).
+ */
+export type CommandInterlockState = "none" | "permit" | "block" | "unknown";
+
+export const commandId = (k: CommandKey) => `${k.agent}|${k.equipment}|${k.name}`;
+
+export interface InterlockStatesWatcher extends Readable<ReadonlyMap<string, CommandInterlockState>> {
+  start(): Promise<void>;
+  stop(): void;
+}
+
+/**
+ * Follows the interlock outcome of a set of commands, for marking command
+ * buttons. One `interlockStates` call covers them all; each interlock's
+ * input points are read once from its detail, and a change to any of them
+ * asks again, in one call, after a short debounce.
+ */
+export function createInterlockStatesWatcher(
+  backend: ScadaBackend,
+  points: PointStore,
+  keys: readonly CommandKey[],
+  options: { debounceMs?: number } = {},
+): InterlockStatesWatcher {
+  const debounceMs = options.debounceMs ?? 150;
+  const unknownAll = () => new Map(keys.map((k) => [commandId(k), "unknown" as CommandInterlockState]));
+  const state = writable<ReadonlyMap<string, CommandInterlockState>>(unknownAll());
+  const inputsOf = new Map<string, PointId[]>();
+  let outcomes = new Map<string, CommandInterlockState>();
+  let cleanups: Unsubscribe[] = [];
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running = false;
+
+  // An outcome computed from a stale input is not shown as if it were current.
+  const publish = () => {
+    const next = new Map<string, CommandInterlockState>();
+    for (const k of keys) {
+      const id = commandId(k);
+      const o = outcomes.get(id) ?? "unknown";
+      const stale = (inputsOf.get(id) ?? []).some((p) => {
+        const v = points.get(p);
+        return v.stale || v.value === null;
+      });
+      next.set(id, (o === "permit" || o === "block") && stale ? "unknown" : o);
+    }
+    state.set(next);
+  };
+
+  const query = async () => {
+    if (!running) return;
+    try {
+      const list = await backend.interlockStates(keys);
+      if (!running) return;
+      outcomes = new Map(list.map((s) => [commandId(s), s.hasInterlock ? (s.outcome === "PERMIT" ? "permit" : "block") : "none"]));
+    } catch {
+      outcomes = new Map();
+    }
+    publish();
+  };
+
+  const onInput = () => {
+    publish();
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => void query(), debounceMs);
+  };
+
+  return {
+    get: state.get,
+    subscribe: state.subscribe,
+    async start() {
+      if (running) return;
+      running = true;
+      await query();
+      // Learn what each interlock reads, then follow those points.
+      const interlocked = keys.filter((k) => outcomes.get(commandId(k)) !== "none");
+      const details = await Promise.all(interlocked.map((k) => backend.interlockDetail(k).catch(() => null)));
+      if (!running) return;
+      details.forEach((d, i) => {
+        if (d) inputsOf.set(commandId(interlocked[i] as CommandKey), inputPoints(treeFromDetail(d)));
+      });
+      const all = [...new Set([...inputsOf.values()].flat())];
+      if (all.length) {
+        cleanups.push(points.watch(all));
+        for (const p of all) cleanups.push(points.subscribe(p, onInput));
+      }
+      publish();
+    },
+    stop() {
+      running = false;
+      if (timer !== null) clearTimeout(timer);
+      for (const c of cleanups) c();
+      cleanups = [];
+    },
+  };
+}
+
 // ── evaluation (mock backend and tests) ───────────────────────────────────
 
 /** Replaces each `{ref}` with `{ref_group: {key, expression}}`, as the hub's `graph` does. */

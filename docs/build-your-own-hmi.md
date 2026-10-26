@@ -165,6 +165,12 @@ expires after 30 s), confirm (checked again, then sent), then each request
 step as the agent reports it. The API has no select-before-operate, so this
 step is in the client. Bypass is offered only to users allowed to bypass.
 
+To show on each button whether its command is allowed, call
+`useInterlockStates(keys)` once for all the commands on a faceplate (one
+hub query covers them, and it re-asks when an input changes), and draw each
+with `<CommandButton label interlock={interlockOf(key)} onCommand onExplain />`.
+It is quiet when the command is allowed and plain when it is interlocked.
+
 To explain an interlock: `useInterlock(key)` returns the live tree and
 `<InterlockPanel view={view} command="Close" />` draws it as a ladder, from
 the request to "command allowed". AND is drawn in series and OR as branches,

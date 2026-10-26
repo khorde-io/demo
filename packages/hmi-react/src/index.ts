@@ -21,6 +21,7 @@ export { TurbineTile, type TurbineTileProps } from "./widgets/TurbineTile.tsx";
 export { InterlockPanel, type InterlockPanelProps } from "./interlock/InterlockPanel.tsx";
 export { InterlockLadder, type InterlockLadderProps } from "./interlock/InterlockLadder.tsx";
 export { useInterlock } from "./interlock/useInterlock.ts";
+export { useInterlockStates } from "./interlock/useInterlockStates.ts";
 export { layoutLadder, DEFAULT_METRICS, type Ladder, type LadderMetrics, type GateBox, type FrameBox, type Wire } from "./interlock/layout.ts";
 export { describeCondition, currentValueText, OP_SYMBOL, type ConditionText } from "./interlock/labels.ts";
 
@@ -31,6 +32,7 @@ export { AlarmHistoryList, alarmChanges, changesToCsv, type AlarmChange, type Al
 // faceplate and commands
 export { Faceplate, type FaceplateProps, type FaceplateTab } from "./faceplate/Faceplate.tsx";
 export { CommandDialog, type CommandDialogProps } from "./faceplate/CommandDialog.tsx";
+export { CommandButton, type CommandButtonProps } from "./faceplate/CommandButton.tsx";
 
 // trends
 export { Sparkline, TrendChart, niceTicks, useTrend, type SparklineProps, type TrendChartProps, type TrendSeries, type TrendState } from "./trend/trend.tsx";

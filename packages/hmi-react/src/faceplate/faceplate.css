@@ -48,3 +48,18 @@
 .kh-cmd-result { margin: 0; font-size: 18px; font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
 .kh-cmd-result--blocked { color: var(--alarm-interlock); }
 .kh-num { font-variant-numeric: tabular-nums; }
+
+/* ── command button with its interlock state ───────────────────────────── */
+.kh-cmdbtn { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; min-width: 76px; }
+.kh-cmdbtn-why { font-size: 12px; color: var(--text-label); }
+.kh-cmdbtn-note { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-label); }
+/* Allowed: nothing extra. Interlocked: the interlock colour, a padlock, and a prominent "Why blocked?". */
+.kh-cmdbtn--block .kh-cmdbtn-btn { border: 2px solid var(--alarm-interlock); }
+.kh-cmdbtn--block .kh-cmdbtn-note { color: var(--alarm-interlock); }
+.kh-cmdbtn--block .kh-cmdbtn-why { color: var(--text-value); font-weight: 700; text-decoration-color: var(--alarm-interlock); }
+.kh-cmdbtn-lock { flex: none; }
+.kh-cmdbtn-lock rect { fill: var(--alarm-interlock); }
+.kh-cmdbtn-lock path { fill: none; stroke: var(--alarm-interlock); stroke-width: 1.6; }
+/* Unknown: dashed, with a "?", so it is never read as allowed. */
+.kh-cmdbtn--unknown .kh-cmdbtn-btn { border-style: dashed; }
+.kh-cmdbtn-unknown { font-weight: 700; color: var(--text-label); }

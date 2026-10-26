@@ -4,6 +4,8 @@ import {
   analyzeFlow,
   buildTree,
   conditions,
+  commandId,
+  createInterlockStatesWatcher,
   createInterlockWatcher,
   evaluate,
   expandRefs,
@@ -15,7 +17,7 @@ import { createMockBackend } from "./mock/backend.ts";
 import type { InterlockDetail } from "./model.ts";
 import { createPointStore } from "./points.ts";
 import { syncScheduler } from "./store.ts";
-import { ES_CLOSE, feederBay, tick } from "./test-fixtures.ts";
+import { CB, CB_CLOSE, ES_CLOSE, feederBay, tick } from "./test-fixtures.ts";
 
 /** commandInterlockDetail as the demo hub returned it for the bus coupler close (both incomers closed). */
 const COUPLER: InterlockDetail = JSON.parse(readFileSync(new URL("../test-data/interlock-detail.bus-coupler.json", import.meta.url), "utf8"));
@@ -173,5 +175,49 @@ describe("interlock watcher", () => {
     const detail = await backend.interlockDetail(ES_CLOSE);
     expect(detail.graph).toEqual({ and: [{ ref_group: { key: "remote", expression: { eq: ["vds.sub.f1.cb::remote_local", 1] } } }, { eq: ["vds.sub.f1.ds::pos", 0] }] });
     expect(treeFromDetail(detail)?.children[0]).toMatchObject({ kind: "ref", state: "PERMIT", children: [{ state: "PERMIT" }] });
+  });
+});
+
+describe("interlock states of many commands", () => {
+  const setup = async () => {
+    const backend = createMockBackend(feederBay());
+    const points = createPointStore(backend, { debounceMs: 0, scheduler: syncScheduler });
+    const watcher = createInterlockStatesWatcher(backend, points, [CB, CB_CLOSE, ES_CLOSE], { debounceMs: 0 });
+    await watcher.start();
+    await tick(10);
+    const of = (k: typeof CB) => watcher.get().get(commandId(k));
+    const until = async (k: typeof CB, s: string) => {
+      for (let i = 0; i < 100 && of(k) !== s; i++) await tick(5);
+    };
+    return { backend, watcher, of, until };
+  };
+
+  it("tells which commands are interlocked, allowed or have no interlock, in one call", async () => {
+    const { watcher, of } = await setup();
+    expect(of(CB)).toBe("none");
+    expect(of(CB_CLOSE)).toBe("permit");
+    expect(of(ES_CLOSE)).toBe("block");
+    watcher.stop();
+  });
+
+  it("follows the inputs and asks again when one changes", async () => {
+    const { backend, watcher, of, until } = await setup();
+    backend.publish("vds.sub.f1.es::pos", 1);
+    await until(CB_CLOSE, "block");
+    expect(of(CB_CLOSE)).toBe("block");
+    backend.publish("vds.sub.f1.ds::pos", 0);
+    backend.publish("vds.sub.f1::v_kv", 0);
+    await until(ES_CLOSE, "permit");
+    expect(of(ES_CLOSE)).toBe("permit");
+    watcher.stop();
+  });
+
+  it("is unknown while an input is stale, so an old answer is not shown as current", async () => {
+    const { backend, watcher, of, until } = await setup();
+    backend.setConnection("offline");
+    await until(CB_CLOSE, "unknown");
+    expect(of(CB_CLOSE)).toBe("unknown");
+    expect(of(CB)).toBe("none");
+    watcher.stop();
   });
 });

@@ -3,10 +3,11 @@
  * status row, the list of commands with "Why?" for each, and a short trend.
  */
 
-import type { CommandKey, PointId } from "@khorde/hmi-core";
+import type { CommandInterlockState, CommandKey, PointId } from "@khorde/hmi-core";
 import {
   AnalogBar,
   AnalogValue,
+  CommandButton,
   InterlockPanel,
   TrendChart,
   useI18n,
@@ -85,17 +86,20 @@ export const commandKey = (c: Pick<CommandSpec, "equipment" | "name">): CommandK
 
 export const sameCommand = (a: CommandKey | null, b: CommandKey) => !!a && a.equipment === b.equipment && a.name === b.name;
 
-/** A row of command buttons, each with its "Why?" link to the interlock. */
+/** A row of command buttons, each showing its interlock state, with its "Why?" link. */
 export function CommandButtons({
   commands,
   canOperate,
   explained,
+  interlockOf,
   onCommand,
   onExplain,
 }: {
   commands: readonly CommandSpec[];
   canOperate: boolean;
   explained: CommandKey | null;
+  /** From one `useInterlockStates` call for the whole faceplate. */
+  interlockOf: (key: CommandKey) => CommandInterlockState;
   onCommand: (c: CommandSpec) => void;
   onExplain: (key: CommandKey) => void;
 }) {
@@ -104,14 +108,15 @@ export function CommandButtons({
       {commands.map((c) => {
         const key = commandKey(c);
         return (
-          <span key={c.name} className="fp-cmd">
-            <button type="button" className="kh-btn kh-btn--sm" disabled={!canOperate} onClick={() => onCommand(c)}>
-              {c.verb}…
-            </button>
-            <button type="button" className="kh-link" aria-pressed={sameCommand(explained, key)} onClick={() => onExplain(key)}>
-              Why?
-            </button>
-          </span>
+          <CommandButton
+            key={c.name}
+            label={`${c.verb}…`}
+            interlock={interlockOf(key)}
+            disabled={!canOperate}
+            onCommand={() => onCommand(c)}
+            onExplain={() => onExplain(key)}
+            explained={sameCommand(explained, key)}
+          />
         );
       })}
     </span>
