@@ -26,46 +26,19 @@ Turbines are numbered 01–24 across the farm (F1 has T01–T06, F2 has T07–T1
 
 ## Running against a local hub
 
-You need the local hub running on this machine. `hub/` in this repo has the
-khorde.io quickstart setup, moved to free ports (broker on `:4223`, IdP on
-`auth.localhost:9311`) so it can run next to another local stack:
+The full setup (hub, agents and their keys, config upload, the HMI's app and
+users) is in the main [README](../README.md#with-a-khorde-hub). In short, once
+the agents exist on the hub, their keys are in `keys/` and
+`site-config/vds-agents.yaml` is uploaded:
 
 ```bash
-cd hub && docker compose up -d
+cd sim
+docker compose up -d
+docker compose logs -f simulator
 ```
 
-The control plane is then at http://localhost:8085/ui/ (note the trailing
-slash). Default admin `admin@khorde.io`; the IdP asks for a new password on
-first login.
-
-1. **Create the agents.** In the control plane, create two agents named
-   exactly `vds-substation` and `vds-windfarm`, generate a service-account key
-   for each and save them as:
-
-   ```
-   sim/keys/vds-substation.json
-   sim/keys/vds-windfarm.json
-   ```
-
-2. **Upload the config.** Upload `site-config/vds-agents.yaml`. It holds both
-   agents, keyed by name. If the control plane takes one agent per upload,
-   upload each agent's section on its own.
-
-3. **Start the agents and the simulator.**
-
-   ```bash
-   cd sim
-   docker compose up -d
-   docker compose logs -f simulator
-   ```
-
-   The simulator starts in the `showcase` state: T09 stopped, T14 in fault,
-   T22 silent (bad quality), low SF6 on the F2 breaker and a warm TR2.
-
-4. **Create the HMI's OIDC application** (for the next phase): a public
-   PKCE app with dev mode on, redirect URI and logout URL both
-   `http://localhost:5173/`. Give the test users the roles
-   `ScadaViewer`, `ScadaOperator` and, for one of them, `ScadaInterlockBypass`.
+The simulator starts in the `showcase` state: T09 stopped, T14 in fault,
+T22 silent (bad quality), low SF6 on the F2 breaker and a warm TR2.
 
 ## Scenarios
 

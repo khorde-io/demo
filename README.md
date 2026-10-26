@@ -16,51 +16,165 @@ design.
 
 ## Getting started
 
-The toolchain comes from [devenv](https://devenv.sh). With direnv, `cd` into
-the repo and allow it once:
-
-```bash
-direnv allow
-```
-
-Without direnv, open a shell with the tools:
-
-```bash
-devenv shell
-```
-
-Then:
+You need [Node.js](https://nodejs.org) 24 or later with npm, and Docker (with
+Compose) to run a hub. The repo also has a [devenv](https://devenv.sh) setup
+with the right Node: `direnv allow` once, or `devenv shell`.
 
 ```bash
 npm install
 ```
 
-The demo runs in one of two ways.
+There are two ways to run the demo. Try it without a hub first: it takes one
+command.
 
-**Without a hub**, the plant simulator runs in the browser behind a mock
-backend, signed in as an operator, with a scenario picker in the footer:
+### Without a hub (one command)
 
 ```bash
 npm run dev:mock
 ```
 
-It runs at http://localhost:5174.
+Open http://localhost:5174. The plant simulator runs in the browser behind a
+mock backend, and you're signed in as an operator. Every screen, command,
+interlock and alarm works, and the footer has a scenario picker (TR1 trip, oil
+excursion, feeder trip…). Nothing is stored after you close the tab.
 
-**Against a hub**, the app reads `apps/demo-electrical/public/config.json`
-(git-ignored) for the identity provider, the client id of the HMI app and the
-API. Copy `config.example.json` (local hub, see [hub/README.md](hub/README.md))
-or `config.saas.example.json`, fill in the client id, then:
+### With a Khorde hub
+
+This runs the whole thing, as it would run on site: the HMI signs in through
+the hub's identity provider and talks to its GraphQL API, and a simulator
+drives two Khorde REST agents, one for the substation and one for the wind
+farm.
+
+```
+ browser (HMI :5173) ──sign-in──▶ Khorde ID (auth.localhost:9311)
+        │ GraphQL + WebSocket
+        ▼
+ Khorde hub (:8085) ◀──broker :4223── REST agents (:9091, :9092) ◀──▶ simulator (:8091)
+```
+
+The hub image is the free demo build from the
+[Khorde quickstart](https://khorde.io/docs/quickstart). **It stops working
+after about 2 hours**: sign-in fails with an error 500 and the screens go
+stale. Restart it with `docker compose restart hub` in `hub/`; nothing is
+lost.
+
+Setting it up takes about 15 minutes, once. Steps 1–6 are done in the
+hub's control plane; the Khorde guides explain each page in more detail.
+
+**1. Start the hub.** `hub/` is the quickstart setup moved to other ports
+(identity provider on `9311`, broker on `4223`), so it can run next to
+another local Khorde stack. Ports `8085`, `4223` and `9311` must be free.
+
+```bash
+cd hub && docker compose up -d
+```
+
+Wait until `curl -f http://localhost:8085/health` answers, then open the
+control plane at http://localhost:8085/ui/ (the trailing slash matters). Sign
+in with the default admin from the
+[quickstart](https://khorde.io/docs/quickstart); the identity provider asks
+for a new password the first time.
+
+`auth.localhost` resolves to your machine in Chrome, Firefox and Edge. If your
+browser or OS doesn't resolve it, add `127.0.0.1 auth.localhost` to
+`/etc/hosts`.
+
+**2. Create the two agents.** In **Agents → New agent**, create
+`vds-substation` and `vds-windfarm` (the names must be exactly these). Open
+each one, click **Generate key** and save the downloaded file as:
+
+```
+sim/keys/vds-substation.json
+sim/keys/vds-windfarm.json
+```
+
+The key is shown only once. `sim/keys/` is git-ignored. See
+[Connect a REST agent](https://khorde.io/docs/guides/connect-a-rest-agent).
+
+**3. Upload the plant's config.** In **Agents**, click **Upload config** and
+pick `sim/site-config/vds-agents.yaml`. It holds both agents, keyed by name,
+with every point, alarm, command and interlock of the plant. See
+[Agent configuration](https://khorde.io/docs/guides/agent-configuration).
+
+**4. Start the agents and the simulator.** Ports `9091`, `9092` and `8091`
+must be free.
+
+```bash
+cd sim && docker compose up -d
+```
+
+Both agents should show **Online** and **configured** in **Agents** within
+a few seconds. `curl localhost:8091/state` shows the simulated plant.
+
+**5. Register the HMI.** In **Apps → New app**, create an app with redirect
+URI and post-logout redirect URI both `http://localhost:5173/`, and turn on
+**Dev mode** (needed for a plain `http://` address). It's a public PKCE
+client, so there's no secret. Copy its client id. See
+[Build your own HMI](https://khorde.io/docs/guides/build-an-hmi).
+
+**6. Add users.** In **Users → Add user**, add one user per role you want to
+try. The roles decide what the HMI offers, and the hub checks them again on
+every call:
+
+| User | Roles | Sees |
+|---|---|---|
+| Viewer | `ScadaViewer` | Every screen, no controls. |
+| Operator | `ScadaViewer`, `ScadaOperator`, `ScadaAlarmAck` | Commands and alarm acknowledgement. |
+| Supervisor | the operator's roles and `ScadaInterlockBypass` | Can also bypass an interlock. |
+
+Note the passwords somewhere outside the repo. `hub/.local-credentials` is
+git-ignored for this.
+
+**7. Point the HMI at the hub.**
+
+```bash
+cp apps/demo-electrical/public/config.example.json apps/demo-electrical/public/config.json
+```
+
+Put the client id from step 5 in `auth.clientId`. `config.json` is
+git-ignored. To use Khorde Cloud instead of a local hub, start from
+`config.saas.example.json`.
+
+**8. Run it.**
 
 ```bash
 npm run dev
 ```
 
-It runs at http://localhost:5173, the redirect URI registered for the app. Run
-the simulator and the REST agents too ([sim/README.md](sim/README.md)), and
-sign in with a user that has a SCADA role. `VITE_HMI_CONFIG` loads the config
-from another path.
+Open http://localhost:5173 (this address, since it's the registered redirect
+URI) and sign in with one of the users from step 6. **Sign in as another
+user** in the user menu switches between them.
 
-### Screens
+#### Trying it out
+
+- Trigger plant events on the simulator:
+  `curl -X POST localhost:8091/scenario/tr1-trip`. The scenarios are listed in
+  [sim/README.md](sim/README.md#scenarios). `normal` clears faults.
+- Operate a breaker from its faceplate (click it on the substation
+  single-line), acknowledge alarms, open a trend. Every action reaches the
+  simulator through the agents: `docker compose logs -f simulator` in `sim/`.
+- Sign in as the viewer and the supervisor to see what changes.
+
+#### When something is wrong
+
+| Symptom | Cause |
+|---|---|
+| Sign-in returns an error 500, or values turn stale and stop updating | The hub's 2-hour demo limit. `docker compose restart hub` in `hub/`. |
+| "No SCADA role" after sign-in | The user has no `Scada*` role (step 6). |
+| Redirected back to sign-in, or a redirect URI error | The HMI isn't on http://localhost:5173, or the app's redirect URIs or dev mode are wrong (step 5). |
+| Agents show no config, or points show "?" | The config wasn't uploaded, or the agent names don't match (steps 2–3). |
+| Agents stay offline | A key is missing from `sim/keys/`, or the hub isn't up. `docker compose logs agent-substation` in `sim/`. |
+| The control plane is a blank page | Open `/ui/` with the trailing slash. |
+
+To start over, `docker compose down` in `sim/` and `docker compose down -v`
+in `hub/` (this wipes the identity provider and the databases), then repeat
+from step 1.
+
+The [sim README](sim/README.md) has the plant, the scenarios, the
+simulator's settings and the performance-bench points.
+`VITE_HMI_CONFIG` loads the HMI config from another path.
+
+## Screens
 
 | Route | Level | Screen |
 |---|---|---|
