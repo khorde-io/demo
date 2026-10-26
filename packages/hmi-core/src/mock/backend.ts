@@ -81,6 +81,12 @@ export interface MockBackendOptions {
    * The default turns `<x>.open` / `<x>.close` into `<equipment>::<x>` = 0 / 1.
    */
   onCommand?(ctx: CommandContext): boolean | void;
+  /**
+   * Who acknowledges alarms and sends commands, as the hub records it from
+   * the access token. Pass the signed-in user (`createStaticAuth`) so the
+   * mock shows the same name the hub would.
+   */
+  actor?: () => { id: string; display: string } | null;
 }
 
 export interface MockBackend extends ScadaBackend {
@@ -116,8 +122,11 @@ export function defaultOnCommand({ key, value, backend }: CommandContext): boole
   return true;
 }
 
+const DEFAULT_ACTOR = { id: "mock-user", display: "Mock operator" };
+
 export function createMockBackend(options: MockBackendOptions = {}): MockBackend {
   const now = options.now ?? (() => new Date());
+  const actor = () => options.actor?.() ?? DEFAULT_ACTOR;
   const stepMs = options.stepMs ?? 50;
   const connection = writable<ConnectionState>("online");
 
@@ -273,7 +282,8 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
     async ackAlarm(instanceId) {
       const a = active.get(instanceId);
       if (!a) return false;
-      record({ ...a, acked: true, ackTimestamp: now(), actorId: "mock-user", actorDisplay: "Mock operator" });
+      const by = actor();
+      record({ ...a, acked: true, ackTimestamp: now(), actorId: by.id, actorDisplay: by.display });
       return true;
     },
 
@@ -284,8 +294,9 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
       const blocked = !request.bypassInterlock && interlockFor(key).state.outcome === "BLOCK";
       const list: RequestUpdate[] = [];
       updates.set(id, list);
+      const by = actor();
       const push = (state: RequestState, msg = "") =>
-        list.push({ id, name: key.name, state, msg, timestamp: now(), actorId: "mock-user", actorDisplay: "Mock operator" });
+        list.push({ id, name: key.name, state, msg, timestamp: now(), actorId: by.id, actorDisplay: by.display });
 
       push(request.bypassInterlock ? "FORWARDED_TO_AGENT_INTERLOCK_BYPASSED" : "FORWARDED_TO_AGENT");
       if (blocked) {

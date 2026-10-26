@@ -99,6 +99,21 @@ describe("alarm store", () => {
     expect(store.get().alarms).toHaveLength(0);
   });
 
+  it("records the acknowledging user the mock is given, like the hub does from the token", async () => {
+    const backend = createMockBackend({ ...feederBay(), actor: () => ({ id: "u-42", display: "operator1" }) });
+    const store = createAlarmStore(backend);
+    await store.start();
+    const a = backend.raiseAlarm({ name: "gearbox", area: "vds.wf.f1", severity: "low" });
+    await tick();
+    await store.ack(a.instanceId);
+    expect(store.get().alarms[0]).toMatchObject({ acked: true, actorId: "u-42", actorDisplay: "operator1" });
+    // Without an actor, the mock says so rather than inventing a name.
+    const anonymous = createMockBackend(feederBay());
+    const b = anonymous.raiseAlarm({ name: "gearbox", area: "vds.wf.f1", severity: "low" });
+    await anonymous.ackAlarm(b.instanceId);
+    expect((await anonymous.activeAlarms())[0]?.actorDisplay).toBe("Mock operator");
+  });
+
   it("acknowledges several at once", async () => {
     const backend = createMockBackend(feederBay());
     const store = createAlarmStore(backend);

@@ -6,7 +6,7 @@
  */
 
 import { pointId, type PointId } from "@khorde/hmi-core";
-import { createMockBackend, type MockBackend } from "@khorde/hmi-core/mock";
+import { createMockBackend, type MockBackend, type MockBackendOptions } from "@khorde/hmi-core/mock";
 import type { Plant } from "@khorde/demo-plant";
 import { createField } from "@khorde/demo-plant/field";
 import { createSimulation, type Scenario, type Simulation } from "@khorde/demo-plant/sim";
@@ -20,12 +20,16 @@ export interface MockSite {
   stop(): void;
 }
 
-export function startMockSite(plant: Plant, options: { tickMs?: number; scenario?: Scenario; thermalSpeed?: number } = {}): MockSite {
+export function startMockSite(
+  plant: Plant,
+  options: { tickMs?: number; scenario?: Scenario; thermalSpeed?: number; actor?: MockBackendOptions["actor"] } = {},
+): MockSite {
   const tickMs = options.tickMs ?? 1000;
   const sim = createSimulation(plant, { seed: Date.now() & 0xffff, thermalSpeed: options.thermalSpeed ?? 10 });
   const backend = createMockBackend({
     ...mockPlant(plant),
     onCommand: ({ key, value }) => sim.command({ equipment: key.equipment, name: key.name, value: value ?? null }).ok,
+    ...(options.actor ? { actor: options.actor } : {}),
   });
   const idOf = new Map<string, PointId>(plant.points.map((p) => [`${p.equipment}.${p.name}`, pointId(p.equipment, p.name)]));
   const alarms = createAlarmEngine(plant.alarms.map((a) => a.config), backend);

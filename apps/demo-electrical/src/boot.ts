@@ -37,11 +37,18 @@ const catalogs = (p: Plant): Record<string, Catalog[]> => ({ en: [{ messages: re
 
 export async function boot(backend: string | undefined = import.meta.env.VITE_HMI_BACKEND): Promise<Booted> {
   if (backend === "mock") {
-    const site = startMockSite(plant);
+    const auth = createStaticAuth({ name: "operator1", roles: [SCADA_ROLES.viewer, SCADA_ROLES.operator, SCADA_ROLES.alarmAck] });
+    // Acks and commands are recorded under the signed-in user, as the hub does.
+    const site = startMockSite(plant, {
+      actor: () => {
+        const u = auth.get().user;
+        return u ? { id: u.sub, display: u.name } : null;
+      },
+    });
     const hmi = createHmi({
       config: MOCK_CONFIG,
       backend: site.backend,
-      auth: createStaticAuth({ name: "operator1", roles: [SCADA_ROLES.viewer, SCADA_ROLES.operator, SCADA_ROLES.alarmAck] }),
+      auth,
       catalogs: catalogs(plant),
     });
     await hmi.auth.init();
