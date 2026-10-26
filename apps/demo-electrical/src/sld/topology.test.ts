@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PointId, PointValue } from "@khorde/hmi-core";
+import { energize, networkPoints, sides, type PointId, type PointValue } from "@khorde/hmi-core";
 import { buildPlant } from "@khorde/demo-plant";
-import { buildNetwork, energize, networkPoints } from "./topology.ts";
+import { buildNetwork } from "./topology.ts";
 
 const plant = buildPlant();
 const net = buildNetwork(plant);
@@ -21,7 +21,8 @@ function normal(over: Record<string, number | null> = {}): Map<PointId, PointVal
   return values;
 }
 
-describe("energize", () => {
+// The engine is tested in hmi-core; this checks the plant is wired the way it is drawn.
+describe("Ventos da Serra wiring", () => {
   it("lights everything connected to a live bus or line", () => {
     const e = energize(net, normal());
     expect(e.get("vds.sub.hv.bus")).toBe(true);
@@ -51,6 +52,11 @@ describe("energize", () => {
     );
     expect(e.get("vds.sub.mv.a")).toBe(true);
     expect(e.get("vds.sub.hv.tr1.out")).toBe(false);
+  });
+
+  it("describes each device supply side first, as drawn", () => {
+    expect(sides(net, "vds.sub.mv.a.f1.cb")).toEqual(["vds.sub.mv.a.f1.mid", "vds.sub.mv.a.f1.out"]);
+    expect(sides(net, "vds.sub.mv.a.tr1.cb")).toEqual(["vds.sub.mv.a.tr1.out", "vds.sub.mv.a.tr1.mid"]);
   });
 
   it("depends on the sources and every switch position", () => {

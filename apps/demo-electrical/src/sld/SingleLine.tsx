@@ -5,7 +5,7 @@
  * are live; every switching device and transformer opens its faceplate.
  */
 
-import { pointId } from "@khorde/hmi-core";
+import { pointId, sides, type Energized } from "@khorde/hmi-core";
 import type { Bay } from "@khorde/demo-plant";
 import {
   BoundBreaker,
@@ -15,16 +15,15 @@ import {
   Line,
   Load,
   Transformer2W,
+  useEnergization,
   useI18n,
   usePoint,
-  usePointValues,
   type SymbolAlarm,
 } from "@khorde/hmi-react";
-import { useMemo } from "react";
 import { bayById, plant, turbinesOf } from "../plant.ts";
 import { useEquipmentAlarms } from "../useEquipmentAlarm.ts";
 import { SvgValue } from "./SvgValue.tsx";
-import { buildNetwork, energize, mid, networkPoints, out, type Energized } from "./topology.ts";
+import { buildNetwork, mid, out } from "./topology.ts";
 
 export const SLD_WIDTH = 1800;
 export const SLD_HEIGHT = 1080;
@@ -68,7 +67,6 @@ const BUS_SPAN = {
 } as const;
 
 const network = buildNetwork(plant);
-const NETWORK_POINTS = networkPoints(network);
 
 export interface SingleLineProps {
   /** Equipment whose faceplate is open, highlighted in the drawing. */
@@ -84,7 +82,7 @@ interface Ctx {
   onOpen: (equipment: string) => void;
 }
 
-function Device({ ctx, device, kind, x, y, sides, rotate }: { ctx: Ctx; device: string; kind: "cb" | "ds" | "es"; x: number; y: number; sides?: [string, string]; rotate?: number }) {
+function Device({ ctx, device, kind, x, y, between, rotate }: { ctx: Ctx; device: string; kind: "cb" | "ds" | "es"; x: number; y: number; between?: [string, string] | undefined; rotate?: number }) {
   const pos = pointId(device, "pos");
   const common = {
     x,
@@ -95,7 +93,7 @@ function Device({ ctx, device, kind, x, y, sides, rotate }: { ctx: Ctx; device: 
     onActivate: () => ctx.onOpen(device),
     ...(rotate !== undefined ? { rotate } : {}),
   };
-  const live = sides ? { liveIn: ctx.e(sides[0]), liveOut: ctx.e(sides[1]) } : {};
+  const live = between ? { liveIn: ctx.e(between[0]), liveOut: ctx.e(between[1]) } : {};
   if (kind === "cb") return <BoundBreaker pos={pos} remoteLocal={pointId(device, "remote_local")} {...live} {...common} />;
   if (kind === "ds") return <BoundDisconnector pos={pos} {...live} {...common} />;
   return <BoundEarthingSwitch pos={pos} {...common} />;
@@ -126,9 +124,9 @@ function LineBay({ ctx, bay }: { ctx: Ctx; bay: Bay }) {
       <W ctx={ctx} node={out(bay)} pts={[[x, Y.grid], [x, Y.lineDs - 32]]} />
       <W ctx={ctx} node={out(bay)} pts={[[x, 58], [x + 70, 58], [x + 70, Y.lineEs - 28]]} />
       <Device ctx={ctx} device={bay.es as string} kind="es" x={x + 70} y={Y.lineEs} />
-      <Device ctx={ctx} device={bay.ds} kind="ds" x={x} y={Y.lineDs} sides={network.sides.get(bay.ds)} />
+      <Device ctx={ctx} device={bay.ds} kind="ds" x={x} y={Y.lineDs} between={sides(network, bay.ds)} />
       <W ctx={ctx} node={mid(bay)} pts={[[x, Y.lineDs + 32], [x, Y.lineCb - 32]]} />
-      <Device ctx={ctx} device={bay.cb} kind="cb" x={x} y={Y.lineCb} sides={network.sides.get(bay.cb)} />
+      <Device ctx={ctx} device={bay.cb} kind="cb" x={x} y={Y.lineCb} between={sides(network, bay.cb)} />
       <W ctx={ctx} node="vds.sub.hv.bus" pts={[[x, Y.lineCb + 32], [x, Y.hvBus]]} />
       <SvgValue id={id("v_kv")} x={x - 34} y={Y.lineDs - 4} anchor="end" />
       <SvgValue id={id("f_hz")} x={x - 34} y={Y.lineDs + 14} decimals={2} anchor="end" />
@@ -149,9 +147,9 @@ function TransformerColumn({ ctx, tr }: { ctx: Ctx; tr: (typeof plant.transforme
   return (
     <g>
       <W ctx={ctx} node="vds.sub.hv.bus" pts={[[x, Y.hvBus], [x, Y.trDs - 32]]} />
-      <Device ctx={ctx} device={hv.ds} kind="ds" x={x} y={Y.trDs} sides={network.sides.get(hv.ds)} />
+      <Device ctx={ctx} device={hv.ds} kind="ds" x={x} y={Y.trDs} between={sides(network, hv.ds)} />
       <W ctx={ctx} node={mid(hv)} pts={[[x, Y.trDs + 32], [x, Y.trCb - 32]]} />
-      <Device ctx={ctx} device={hv.cb} kind="cb" x={x} y={Y.trCb} sides={network.sides.get(hv.cb)} />
+      <Device ctx={ctx} device={hv.cb} kind="cb" x={x} y={Y.trCb} between={sides(network, hv.cb)} />
       <W ctx={ctx} node={out(hv)} pts={[[x, Y.trCb + 32], [x, Y.tr - 48]]} />
       <SvgValue id={pointId(hv.id, "i_a")} x={x - 34} y={Y.trCb + 4} decimals={0} anchor="end" />
 
@@ -175,9 +173,9 @@ function TransformerColumn({ ctx, tr }: { ctx: Ctx; tr: (typeof plant.transforme
       <SvgValue id={pointId(tr.id, "oil_temp")} x={x + 32} y={Y.tr + 24} prefix="Oil" />
 
       <W ctx={ctx} node={out(lv)} pts={[[x, Y.tr + 48], [x, Y.incCb - 32]]} />
-      <Device ctx={ctx} device={lv.cb} kind="cb" x={x} y={Y.incCb} sides={network.sides.get(lv.cb)} />
+      <Device ctx={ctx} device={lv.cb} kind="cb" x={x} y={Y.incCb} between={sides(network, lv.cb)} />
       <W ctx={ctx} node={mid(lv)} pts={[[x, Y.incCb + 32], [x, Y.incDs - 32]]} />
-      <Device ctx={ctx} device={lv.ds} kind="ds" x={x} y={Y.incDs} sides={network.sides.get(lv.ds)} />
+      <Device ctx={ctx} device={lv.ds} kind="ds" x={x} y={Y.incDs} between={sides(network, lv.ds)} />
       <W ctx={ctx} node={lvBus} pts={[[x, Y.incDs + 32], [x, Y.mvBus]]} />
       <SvgValue id={pointId(lv.id, "p_mw")} x={x - 34} y={Y.incCb - 4} decimals={1} anchor="end" />
       <SvgValue id={pointId(lv.id, "i_a")} x={x - 34} y={Y.incCb + 14} decimals={0} anchor="end" />
@@ -199,9 +197,9 @@ function LowerBay({ ctx, bay }: { ctx: Ctx; bay: Bay }) {
   return (
     <g>
       <W ctx={ctx} node={bus} pts={[[x, Y.mvBus], [x, Y.bayDs - 32]]} />
-      <Device ctx={ctx} device={bay.ds} kind="ds" x={x} y={Y.bayDs} sides={network.sides.get(bay.ds)} />
+      <Device ctx={ctx} device={bay.ds} kind="ds" x={x} y={Y.bayDs} between={sides(network, bay.ds)} />
       <W ctx={ctx} node={mid(bay)} pts={[[x, Y.bayDs + 32], [x, Y.bayCb - 32]]} />
-      <Device ctx={ctx} device={bay.cb} kind="cb" x={x} y={Y.bayCb} sides={network.sides.get(bay.cb)} />
+      <Device ctx={ctx} device={bay.cb} kind="cb" x={x} y={Y.bayCb} between={sides(network, bay.cb)} />
       {bay.kind === "feeder" && (
         <>
           <W ctx={ctx} node={out(bay)} pts={[[x, Y.bayCb + 32], [x, Y.bayEnd]]} />
@@ -235,9 +233,9 @@ function Coupler({ ctx, bay }: { ctx: Ctx; bay: Bay }) {
   return (
     <g>
       <W ctx={ctx} node="vds.sub.mv.a" pts={[[800, Y.mvBus], [800, y], [804, y]]} />
-      <Device ctx={ctx} device={bay.ds} kind="ds" x={836} y={y} rotate={-90} sides={network.sides.get(bay.ds)} />
-      <Device ctx={ctx} device={bay.cb} kind="cb" x={900} y={y} rotate={-90} sides={network.sides.get(bay.cb)} />
-      <Device ctx={ctx} device={bay.dsB as string} kind="ds" x={964} y={y} rotate={-90} sides={network.sides.get(bay.dsB as string)} />
+      <Device ctx={ctx} device={bay.ds} kind="ds" x={836} y={y} rotate={-90} between={sides(network, bay.ds)} />
+      <Device ctx={ctx} device={bay.cb} kind="cb" x={900} y={y} rotate={-90} between={sides(network, bay.cb)} />
+      <Device ctx={ctx} device={bay.dsB as string} kind="ds" x={964} y={y} rotate={-90} between={sides(network, bay.dsB as string)} />
       <W ctx={ctx} node="vds.sub.mv.b" pts={[[996, y], [1000, y], [1000, Y.mvBus]]} />
       <text className="sld-label sld-label--strong" x={900} y={y + 56} textAnchor="middle">
         Bus coupler
@@ -249,11 +247,10 @@ function Coupler({ ctx, bay }: { ctx: Ctx; bay: Bay }) {
 
 export function SingleLine({ selected, onOpen }: SingleLineProps) {
   const i18n = useI18n();
-  const values = usePointValues(NETWORK_POINTS);
-  const energized = useMemo(() => energize(network, values), [values]);
+  const energized = useEnergization(network);
   const alarm = useEquipmentAlarms();
   const ctx: Ctx = {
-    e: (node) => energized.get(node) ?? null,
+    e: energized,
     alarm,
     name: (eq) => i18n.equipmentName(eq),
     selected,

@@ -10,6 +10,7 @@ export * from "./alarms.ts";
 export * from "./agents.ts";
 export * from "./commands.ts";
 export * from "./interlocks.ts";
+export * from "./topology.ts";
 export * from "./history.ts";
 export * from "./i18n/i18n.ts";
 export { en as coreMessages } from "./i18n/en.ts";

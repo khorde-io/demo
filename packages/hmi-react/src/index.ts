@@ -11,6 +11,7 @@ export { Breaker, Busbar, Disconnector, EarthingSwitch, Generator, Line, Load, T
 export { TURBINE_CODES, WindIndicator, WindTurbine, type TurbineState, type WindIndicatorProps } from "./symbols/wind.tsx";
 export { BoundBreaker, BoundDisconnector, BoundEarthingSwitch, BoundWindTurbine, turbineStateOf } from "./symbols/bound.tsx";
 export { SymbolSvg } from "./symbols/SymbolSvg.tsx";
+export { useEnergization } from "./topology/useEnergization.ts";
 
 // widgets
 export { AlarmIndicator, AnalogBar, AnalogValue, StatusDot, alarmIndication, type AnalogBarProps, type AnalogValueProps, type Connectivity } from "./widgets/widgets.tsx";

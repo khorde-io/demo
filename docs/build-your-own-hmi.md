@@ -10,7 +10,7 @@ with live values, commands, interlocks, alarms and trends, using the demo
 
 | Layer | Packages | Changes per customer? |
 |---|---|---|
-| **Libraries** | `@khorde/hmi-core` (auth, transport, live values, alarms, commands, interlocks, history, texts, config), `@khorde/hmi-theme` (design tokens and themes), `@khorde/hmi-react` (hooks, shell, widgets, symbols, faceplate, dialogs) | No. Depend on them. |
+| **Libraries** | `@khorde/hmi-core` (auth, transport, live values, alarms, commands, interlocks, energization, history, texts, config), `@khorde/hmi-theme` (design tokens and themes), `@khorde/hmi-react` (hooks, shell, widgets, symbols, faceplate, dialogs) | No. Depend on them. |
 | **Project** | Your app: plant description, dictionary, screens, faceplates, menu | Yes. This is what you write. |
 
 `hmi-core` has no React in it, so another UI framework can use it as is.
@@ -125,10 +125,28 @@ Symbols are pure SVG groups centred on `(x, y)`: props in, drawing out. The
 - **Live values**: `usePoint(id)` for one point, `usePointValues(ids)` for a
   set. A screen only receives the points it shows. The store keeps one
   subscription for everything watched and notifies once per animation frame.
-- **Energization** is project logic, worked out from what is measured. The demo's
-  `sld/topology.ts` lights a node from bus, line and feeder voltages and
-  spreads it through closed switches. A switch in an unknown position makes
-  what lies beyond it unknown, not dead.
+- **Energization** comes from what is measured, in the library: describe the
+  wiring once with `networkBuilder` (hmi-core), then `useEnergization(net)`
+  (hmi-react) gives each conductor's state for the symbols' `energized`,
+  `liveIn` and `liveOut`. Measured nodes (buses, line ends, feeder cables)
+  above a threshold are live, and that spreads through every switch that
+  conducts. A switch in an unknown position makes what lies beyond it
+  unknown, not dead. The switch coding and the threshold are options.
+
+  ```ts
+  const net = networkBuilder()
+    .source("bus.a", "vds.sub.mv.a::v_kv")
+    .device("bus.a", "f1.mid", "vds.sub.mv.a.f1.ds") // supply side first
+    .device("f1.mid", "f1.out", "vds.sub.mv.a.f1.cb")
+    .link("tr1.hv", "tr1.lv", "vds.sub.tr1") // a transformer always conducts
+    .build();
+
+  const live = useEnergization(net);
+  const [inSide, outSide] = sides(net, "vds.sub.mv.a.f1.cb")!;
+  <BoundBreaker pos="vds.sub.mv.a.f1.cb::pos" liveIn={live(inSide)} liveOut={live(outSide)} … />
+  ```
+
+  The demo's `sld/topology.ts` is the Ventos da Serra wiring built this way.
 - **Alarms on symbols**: `useEquipmentAlarms()` in the demo picks the most
   urgent alarm whose name starts with the equipment id.
 - Draw single-lines by hand (TSX) where the drawing matters. Lay out

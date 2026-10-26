@@ -17,8 +17,8 @@ export function switchStateOf(v: PointValue | undefined, codes: Readonly<Record<
   return codes[v.value] ?? "invalid";
 }
 
-/** Whether a conductor carries voltage; null when it cannot be known. */
-export type Energized = boolean | null;
+/** Whether a conductor carries voltage; null when it cannot be known (see `energize` in hmi-core). */
+export type { Energized } from "@khorde/hmi-core";
 
 /** What an alarm indicator shows. */
 export type AlarmIndication = "active-unacked" | "active-acked" | "returned-unacked";
