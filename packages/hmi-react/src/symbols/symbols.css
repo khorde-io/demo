@@ -8,10 +8,10 @@
 .kh-sym--selected .kh-sym-hit { stroke: var(--focus-color); stroke-width: 2; stroke-dasharray: 4 3; }
 
 .kh-wire { stroke: var(--proc-line-dead); stroke-width: var(--hmi-stroke-dead, 2px); fill: none; }
-.kh-wire--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-live, 3px); }
+.kh-wire--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-live, 4px); }
 .kh-wire--unknown { stroke: var(--proc-static); stroke-width: var(--hmi-stroke-dead, 2px); stroke-dasharray: 5 4; }
-.kh-bus { stroke: var(--proc-line-dead); stroke-width: 6px; fill: none; }
-.kh-bus--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-bus, 8px); }
+.kh-bus { stroke: var(--proc-line-dead); stroke-width: var(--hmi-stroke-bus-dead, 5px); fill: none; }
+.kh-bus--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-bus, 10px); }
 .kh-bus--unknown { stroke: var(--proc-static); stroke-dasharray: 8 6; }
 
 .kh-breaker-body { fill: none; stroke: var(--proc-line-live); stroke-width: 3; }

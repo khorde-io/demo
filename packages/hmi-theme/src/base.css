@@ -13,9 +13,12 @@
   --hmi-text-lg: 20px;
   --hmi-text-xl: 28px;
 
-  --hmi-stroke-live: 3px;
+  /* Live conductors are brighter and twice as thick as dead ones, so the state
+     reads by form as well as lightness (and survives scaling and grey scale). */
+  --hmi-stroke-live: 4px;
   --hmi-stroke-dead: 2px;
-  --hmi-stroke-bus: 8px;
+  --hmi-stroke-bus: 10px;
+  --hmi-stroke-bus-dead: 5px;
   --hmi-radius: var(--radius-md);
   --hmi-target-min: 44px;
 }

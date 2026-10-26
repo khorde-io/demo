@@ -26,7 +26,7 @@
 @media (max-width: 560px) { .kh-ilk-ladder { max-width: none; } }
 
 .kh-ilk-wire { stroke: var(--proc-line-dead); stroke-width: var(--hmi-stroke-dead, 2px); fill: none; }
-.kh-ilk-wire--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-live, 3px); stroke-linecap: square; }
+.kh-ilk-wire--live { stroke: var(--proc-line-live); stroke-width: var(--hmi-stroke-live, 4px); stroke-linecap: square; }
 
 .kh-ilk-gate { cursor: default; outline: none; }
 .kh-ilk-gate-box { fill: var(--proc-surface); stroke-width: 2; }
