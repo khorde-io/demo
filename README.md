@@ -1,8 +1,8 @@
 # Khorde demo HMI
 
 A demo and reference HMI for the Khorde SCADA, built for the electrical sector
-(a wind farm and its 34.5/138 kV substation). See [PLAN.md](PLAN.md) for the
-design.
+(a wind farm and its 34.5/138 kV substation). See
+[docs/architecture.md](docs/architecture.md) for how it is built.
 
 ## Layout
 
@@ -192,6 +192,7 @@ interlock bench and the performance bench.
 
 ## Docs
 
+- [Architecture](docs/architecture.md): the packages, why they're built this way, how they use the Khorde API, and the backend limits.
 - [Build your own HMI](docs/build-your-own-hmi.md): from an empty app to live screens, commands, alarms and trends.
 - [ISA-101 rationale](docs/isa-101.md): the visual and interaction choices, and why.
 - [Accessibility](docs/accessibility.md): what is checked, the last audit, and how to run it.
