@@ -46,10 +46,10 @@ drives two Khorde REST agents, one for the substation and one for the wind
 farm.
 
 ```
- browser (HMI :5173) ──sign-in──▶ Khorde ID (auth.localhost:9311)
+ browser (HMI :5173) ──sign-in──▶ Khorde ID (auth.localhost:9310)
         │ GraphQL + WebSocket
         ▼
- Khorde hub (:8085) ◀──broker :4223── REST agents (:9091, :9092) ◀──▶ simulator (:8091)
+ Khorde hub (:8085) ◀──broker :4222── REST agents (:9091, :9092) ◀──▶ simulator (:8091)
 ```
 
 The hub image is the free demo build from the
@@ -58,12 +58,13 @@ after about 2 hours**: sign-in fails with an error 500 and the screens go
 stale. Restart it with `docker compose restart hub` in `hub/`; nothing is
 lost.
 
-Setting it up takes about 15 minutes, once. Steps 1–6 are done in the
+Setting it up takes about 15 minutes, once. Steps 2–6 are done in the
 hub's control plane; the Khorde guides explain each page in more detail.
 
-**1. Start the hub.** `hub/` is the quickstart setup moved to other ports
-(identity provider on `9311`, broker on `4223`), so it can run next to
-another local Khorde stack. Ports `8085`, `4223` and `9311` must be free.
+**1. Start the hub.** `hub/docker-compose.yaml` is the
+[quickstart](https://khorde.io/docs/quickstart) compose file, unchanged, so
+if you already run a quickstart hub you can use it and skip this. Ports
+`8085`, `4222`, `9310`, `5432` and `8812` must be free.
 
 ```bash
 cd hub && docker compose up -d
