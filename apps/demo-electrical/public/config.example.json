@@ -1,7 +1,7 @@
 {
   "siteName": "Ventos da Serra",
   "auth": {
-    "authority": "http://auth.localhost:9311",
+    "authority": "http://auth.localhost:9310",
     "clientId": "<client id of the HMI app on your hub>",
     "projectId": "khorde_scada"
   },

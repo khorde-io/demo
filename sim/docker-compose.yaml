@@ -5,7 +5,7 @@
 #   simulator         plant model; pushes values to both agents and serves
 #                     their command webhook                      (host :8091)
 #
-# The hub (../hub: broker :4223, auth :9311) runs on the host. Put each agent's
+# The hub (../hub: broker :4222, auth :9310) runs on the host. Put each agent's
 # service-account key in ./keys before starting (see README.md).
 #
 #   docker compose up -d

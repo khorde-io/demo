@@ -23,7 +23,7 @@ The same build runs against any backend: the URLs are read at startup from
 ```json
 {
   "siteName": "Ventos da Serra",
-  "auth": { "authority": "http://auth.localhost:9311", "clientId": "<your app's client id>", "projectId": "khorde_scada" },
+  "auth": { "authority": "http://auth.localhost:9310", "clientId": "<your app's client id>", "projectId": "khorde_scada" },
   "api": { "http": "http://localhost:8085/", "ws": "ws://localhost:8085/" },
   "defaults": { "theme": "dark-grey", "locale": "en" },
   "themes": ["dark-grey", "range-green", "ink"]

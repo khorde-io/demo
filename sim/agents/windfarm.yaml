@@ -8,10 +8,10 @@ rest:
 agent:
   broker:
     ip: host.docker.internal
-    port: "4223" # host port of the demo hub (hub/docker-compose.yaml)
+    port: "4222"
     tls: false
   credentials:
-    url: http://auth.localhost:9311
+    url: http://auth.localhost:9310
     project_id: khorde_scada
     # Mounted from keys/vds-windfarm.json by docker-compose.yaml.
     service_account_path: service-user.json

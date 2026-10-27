@@ -1,9 +1,10 @@
 # Local hub
 
-The [khorde.io quickstart](https://khorde.io/docs/quickstart) hub ("Run the
-Hub locally"), for running the demo. It uses the IdP on `auth.localhost:9311`
-and the broker on host port `4223`, so it can run next to another local Khorde
-stack. The step-by-step setup is in the main [README](../README.md#with-a-khorde-hub).
+The Khorde Hub from the [khorde.io quickstart](https://khorde.io/docs/quickstart)
+("Run the Hub locally"): `docker-compose.yaml` is the quickstart's compose
+file, unchanged, on the default ports (control plane `8085`, broker `4222`,
+identity provider `auth.localhost:9310`, Postgres `5432`, QuestDB `8812`).
+The step-by-step setup is in the main [README](../README.md#with-a-khorde-hub).
 
 The image is the demo build, which stops working after about 2 hours (sign-in
 returns an error 500, values go stale). `docker compose restart hub` brings it
