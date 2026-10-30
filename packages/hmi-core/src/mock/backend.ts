@@ -28,7 +28,8 @@ import {
   type RequestState,
   type RequestUpdate,
 } from "../model.ts";
-import { matchAny, matchPath, pathMatcher } from "../paths.ts";
+import { matchAny, pathMatcher } from "../paths.ts";
+import type { Page, PageRequest } from "../pages.ts";
 import { writable } from "../store.ts";
 
 export interface MockPoint {
@@ -108,6 +109,13 @@ const uuid = () => {
 };
 
 const defer = (fn: () => void) => queueMicrotask(fn);
+
+/** One page of already-ordered rows; the cursor is an offset. */
+function page<T>(rows: readonly T[], request: PageRequest): Page<T> {
+  const start = request.after ? Number(request.after) : 0;
+  const end = start + (request.first ?? 1_000);
+  return { items: rows.slice(start, end), next: end < rows.length ? String(end) : null };
+}
 
 export function defaultOnCommand({ key, value, backend }: CommandContext): boolean {
   const m = /^(.+)\.(open|close)$/.exec(key.name);
@@ -255,22 +263,33 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
       return () => measSubs.delete(s);
     },
 
-    async history(type, filter) {
-      return stored.filter(
-        (m) =>
-          m.type === type &&
-          (!filter.path || matchPath(filter.path, pointPath(m.id))) &&
-          (!filter.from || m.timestamp >= filter.from) &&
-          (!filter.to || m.timestamp <= filter.to),
-      );
+    async history(type, query) {
+      // Ordered like the hub: by timestamp, then equipment and name.
+      const matches = pathMatcher(query.paths);
+      const dir = query.order === "desc" ? -1 : 1;
+      const rows = stored
+        .filter(
+          (m) =>
+            m.type === type &&
+            matches(pointPath(m.id)) &&
+            (!query.from || m.timestamp >= query.from) &&
+            (!query.to || m.timestamp <= query.to),
+        )
+        .sort((a, b) => dir * (a.timestamp.getTime() - b.timestamp.getTime()) || a.id.localeCompare(b.id));
+      return page(rows, query);
     },
 
     async activeAlarms(areas = []) {
       return [...active.values()].filter((a) => areas.length === 0 || matchAny(areas, a.area));
     },
 
-    async alarmHistory(range) {
-      return alarmLog.filter((a) => (!range.from || a.timestamp >= range.from) && (!range.to || a.timestamp <= range.to));
+    async alarmHistory(query) {
+      // Ordered like the hub: by timestamp, then instance id.
+      const dir = query.order === "desc" ? -1 : 1;
+      const rows = alarmLog
+        .filter((a) => (!query.from || a.timestamp >= query.from) && (!query.to || a.timestamp <= query.to))
+        .sort((a, b) => dir * (a.timestamp.getTime() - b.timestamp.getTime()) || a.instanceId.localeCompare(b.instanceId));
+      return page(rows, query);
     },
 
     subscribeAlarms(areas, sink) {

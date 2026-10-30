@@ -1,10 +1,11 @@
 /**
- * History for trends. The API has no pagination or server-side downsampling,
- * so long ranges are split into chunks, merged, and reduced to a size a chart
- * can draw without losing peaks.
+ * History for trends. The API serves history in pages; this follows them, newest
+ * first, and reduces each series to a size a chart can draw without losing
+ * peaks (there is no server-side downsampling).
  */
 
 import type { ScadaBackend } from "./backend.ts";
+import { collectPages } from "./pages.ts";
 import type { Measurement, MeasurementType, PointId } from "./model.ts";
 
 export interface Series {
@@ -16,16 +17,16 @@ export interface Series {
 }
 
 export interface HistoryOptions {
-  /** Longest time range per request. */
-  chunkMs?: number;
-  /** Requests in flight at once. */
-  concurrency?: number;
+  /** Rows per request, up to the API's 10,000. */
+  pageSize?: number;
+  /** Stop after this many rows. Pages come newest first, so the oldest are dropped. */
+  maxRows?: number;
 }
 
 export interface SeriesQuery {
   type: MeasurementType;
-  /** `equipment.name`, wildcards allowed. */
-  path: string;
+  /** `equipment.name` paths, wildcards allowed. One request covers them all. */
+  paths: readonly string[];
   from: Date;
   to: Date;
   /** Reduce each series to about this many points. */
@@ -33,17 +34,9 @@ export interface SeriesQuery {
 }
 
 export interface HistoryService {
-  fetch(type: MeasurementType, path: string, from: Date, to: Date): Promise<Measurement[]>;
+  /** Every row in the range for the paths, newest first, up to `maxRows`. */
+  fetch(type: MeasurementType, paths: readonly string[], from: Date, to: Date): Promise<Measurement[]>;
   series(query: SeriesQuery): Promise<Map<PointId, Series>>;
-}
-
-/** Splits [from, to) into consecutive windows of at most `chunkMs`. */
-export function chunkRange(from: Date, to: Date, chunkMs: number): [Date, Date][] {
-  const out: [Date, Date][] = [];
-  for (let t = from.getTime(); t < to.getTime(); t += chunkMs) {
-    out.push([new Date(t), new Date(Math.min(t + chunkMs, to.getTime()))]);
-  }
-  return out;
 }
 
 function numeric(m: Measurement): number | null {
@@ -100,40 +93,17 @@ export function downsample(series: Series, maxPoints: number): Series {
   return { id: series.id, t, v };
 }
 
-async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      out[i] = await fn(items[i] as T);
-    }
-  });
-  await Promise.all(workers);
-  return out;
-}
-
 export function createHistoryService(backend: ScadaBackend, options: HistoryOptions = {}): HistoryService {
-  const chunkMs = options.chunkMs ?? 6 * 60 * 60 * 1000;
-  const concurrency = options.concurrency ?? 2;
+  const pageSize = options.pageSize ?? 5_000;
+  const maxRows = options.maxRows ?? 200_000;
 
-  const fetch = async (type: MeasurementType, path: string, from: Date, to: Date) => {
-    const chunks = chunkRange(from, to, chunkMs);
-    const parts = await mapLimit(chunks, concurrency, ([f, t]) => backend.history(type, { path, from: f, to: t }));
-    // Windows share their edges; drop duplicates at the seams.
-    const seen = new Set<string>();
-    return parts.flat().filter((m) => {
-      const k = `${m.id}@${m.timestamp.getTime()}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-  };
+  const fetch = (type: MeasurementType, paths: readonly string[], from: Date, to: Date) =>
+    collectPages((page) => backend.history(type, { paths, from, to, order: "desc", ...page }), { pageSize, maxRows });
 
   return {
     fetch,
     async series(q) {
-      const all = toSeries(await fetch(q.type, q.path, q.from, q.to));
+      const all = toSeries(await fetch(q.type, q.paths, q.from, q.to));
       if (!q.maxPoints) return all;
       return new Map([...all].map(([id, s]) => [id, downsample(s, q.maxPoints as number)] as const));
     },

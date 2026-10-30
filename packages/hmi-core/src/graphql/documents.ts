@@ -21,14 +21,20 @@ export const MEAS_BY_TAG = /* GraphQL */ `
 `;
 
 export const HIST_ANALOGICAL = /* GraphQL */ `
-  query HistAnalogical($filter: MeasFilter) {
-    histAnalogical(filter: $filter) { ${MEASUREMENT} }
+  query HistAnalogical($paths: [String!]!, $timestamp: TimestampFilter, $order: HistOrder!, $first: Int!, $after: String) {
+    histAnalogical(paths: $paths, timestamp: $timestamp, order: $order, first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ${MEASUREMENT} }
+    }
   }
 `;
 
 export const HIST_DISCRETE = /* GraphQL */ `
-  query HistDiscrete($filter: MeasFilter) {
-    histDiscrete(filter: $filter) { ${MEASUREMENT} }
+  query HistDiscrete($paths: [String!]!, $timestamp: TimestampFilter, $order: HistOrder!, $first: Int!, $after: String) {
+    histDiscrete(paths: $paths, timestamp: $timestamp, order: $order, first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ${MEASUREMENT} }
+    }
   }
 `;
 
@@ -39,8 +45,11 @@ export const ACTIVE_ALARMS = /* GraphQL */ `
 `;
 
 export const ALARM_HISTORY = /* GraphQL */ `
-  query AlarmHistory($filter: AlarmFilter) {
-    alm(filter: $filter) { ${ALARM} }
+  query AlarmHistory($filter: AlarmFilter, $order: HistOrder!, $first: Int!, $after: String) {
+    alm(filter: $filter, order: $order, first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ${ALARM} }
+    }
   }
 `;
 

@@ -185,8 +185,8 @@ and the condition that stops the command is marked.
 - `<AlarmHistoryList from to filter>` is the event log for a time range, read
   only, with CSV export.
 - `useTrend(ids, type, windowMs, label)` with `<TrendChart>` fills a trend from
-  history and keeps it moving live. Long ranges are chunked and reduced
-  without losing peaks.
+  history and keeps it moving live. One query covers all the trend's points,
+  page by page, and each series is reduced without losing peaks.
 
 ## 8. Develop without a hub
 

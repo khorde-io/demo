@@ -17,6 +17,7 @@ import type {
   RegisteredMeasurement,
   RequestUpdate,
 } from "./model.ts";
+import type { Page, PageRequest } from "./pages.ts";
 import type { Readable, Unsubscribe } from "./store.ts";
 
 export type { ConnectionState, Sink };
@@ -26,9 +27,16 @@ export interface TimeRange {
   to?: Date;
 }
 
-export interface HistoryFilter extends TimeRange {
-  /** `equipment.name` path; may use `*` and `>` wildcards. */
-  path?: string;
+export type HistoryOrder = "asc" | "desc";
+
+/** One page of a time range, ordered by timestamp (default `asc`). */
+export interface RangePageQuery extends TimeRange, PageRequest {
+  order?: HistoryOrder;
+}
+
+export interface HistoryQuery extends RangePageQuery {
+  /** `equipment.name` paths; `*` matches one segment, a trailing `>` one or more. */
+  paths: readonly string[];
 }
 
 export interface CommandRequest {
@@ -46,10 +54,11 @@ export interface ScadaBackend {
   /** Sends the cached current value of every matching point, then every change. */
   subscribeMeasurements(paths: readonly string[], sink: Sink<Measurement>): Unsubscribe;
   subscribeMeasurementsByTag(tag: string, sink: Sink<Measurement>): Unsubscribe;
-  history(type: MeasurementType, filter: HistoryFilter): Promise<Measurement[]>;
+  history(type: MeasurementType, query: HistoryQuery): Promise<Page<Measurement>>;
 
   activeAlarms(areas?: readonly string[]): Promise<Alarm[]>;
-  alarmHistory(range: TimeRange): Promise<Alarm[]>;
+  /** Every recorded alarm change in the range, ordered by timestamp, then instance id. */
+  alarmHistory(query: RangePageQuery): Promise<Page<Alarm>>;
   subscribeAlarms(areas: readonly string[], sink: Sink<Alarm>): Unsubscribe;
   ackAlarm(instanceId: string): Promise<boolean>;
 

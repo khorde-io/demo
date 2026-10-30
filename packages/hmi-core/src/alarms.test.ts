@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAlarmStore, filterAlarms, loadAlarmHistory, mergeAlarm, untilClearedAndAcked, whileSet } from "./alarms.ts";
 import { createMockBackend } from "./mock/backend.ts";
 import type { Alarm } from "./model.ts";
@@ -205,6 +205,22 @@ describe("loadAlarmHistory", () => {
     ]);
     const wf = await loadAlarmHistory(backend, { from: new Date(0), to: new Date(5000) }, { areas: ["vds.wf.>"] });
     expect(wf.every((x) => x.area === "vds.wf.f1")).toBe(true);
+  });
+
+  it("follows the pages, newest first, and keeps the newest rows at the cap", async () => {
+    let t = 0;
+    const backend = createMockBackend(feederBay({ now: () => new Date(t) }));
+    for (let i = 1; i <= 7; i++) {
+      t = i * 1000;
+      backend.raiseAlarm({ name: `a${i}`, area: "vds.sub", severity: "low" });
+    }
+    const spy = vi.spyOn(backend, "alarmHistory");
+    const range = { from: new Date(0), to: new Date(t) };
+    const all = await loadAlarmHistory(backend, range, {}, { pageSize: 3 });
+    expect(spy.mock.calls.map(([q]) => [q.order, q.first, q.after])).toEqual([["desc", 3, undefined], ["desc", 3, "3"], ["desc", 3, "6"]]);
+    expect(all.map((a) => a.name)).toEqual(["a7", "a6", "a5", "a4", "a3", "a2", "a1"]);
+    const capped = await loadAlarmHistory(backend, range, {}, { pageSize: 3, maxRows: 4 });
+    expect(capped.map((a) => a.name)).toEqual(["a7", "a6", "a5", "a4"]);
   });
 });
 

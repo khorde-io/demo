@@ -10,6 +10,7 @@
  */
 
 import type { ScadaBackend } from "./backend.ts";
+import { collectPages } from "./pages.ts";
 import type { Permissions } from "./commands.ts";
 import type { Alarm, AlarmPriority } from "./model.ts";
 import { matchAny } from "./paths.ts";
@@ -196,14 +197,16 @@ export function createAlarmStore(backend: ScadaBackend, options: AlarmStoreOptio
 /**
  * Alarm history for the history/event view: every recorded change (raised,
  * returned, event, acknowledged) in a time range, newest first, optionally
- * filtered. One-shot query; the active list is the live view.
+ * filtered. One-shot query, page by page up to `maxRows` (the oldest are
+ * dropped); the active list is the live view.
  */
 export async function loadAlarmHistory(
   backend: ScadaBackend,
   range: { from: Date; to: Date },
   filter: AlarmFilter = {},
+  { pageSize = 5_000, maxRows = 50_000 }: { pageSize?: number; maxRows?: number } = {},
 ): Promise<Alarm[]> {
-  const all = await backend.alarmHistory(range);
+  const all = await collectPages((page) => backend.alarmHistory({ ...range, order: "desc", ...page }), { pageSize, maxRows });
   // An ack is a change of its own: order it by when it happened.
   const changedAt = (a: Alarm) => Math.max(a.timestamp.getTime(), a.ackTimestamp?.getTime() ?? 0);
   return filterAlarms(
