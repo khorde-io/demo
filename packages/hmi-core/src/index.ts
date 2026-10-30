@@ -1,6 +1,7 @@
 export * from "./model.ts";
 export * from "./paths.ts";
 export * from "./store.ts";
+export * from "./pages.ts";
 export * from "./backend.ts";
 export { createTransport, GraphQLRequestError, type Transport, type TransportOptions } from "./graphql/transport.ts";
 export { createGraphQLBackend } from "./graphql/backend.ts";

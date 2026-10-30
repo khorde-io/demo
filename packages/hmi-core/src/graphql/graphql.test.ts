@@ -110,24 +110,51 @@ describe("GraphQL backend", () => {
     expect(calls[1]?.variables).toMatchObject({ value: 2.5, bypassInterlock: true });
   });
 
-  it("asks the hub for the point name and keeps only the equipment the path matches", async () => {
+  it("asks for history by paths, one page at a time", async () => {
     const row = (equipment: string, name: string) => ({ equipment, name, timestamp: "2026-10-25T01:00:00Z", type: "analogical", value: 1, quality: "good" });
     const { t, calls } = fakeTransport({
-      histAnalogical: [row("vds.wf.f1.t01", "p_kw"), row("vds.wf.f2.t07", "p_kw"), row("vds.sub.mv.a.f1", "p_kw"), row("vds.wf.met", "p_kw")],
+      histAnalogical: { pageInfo: { hasNextPage: true, endCursor: "c2" }, nodes: [row("vds.wf.f1.t01", "p_kw"), row("vds.wf.f2.t07", "p_kw")] },
     });
     const b = createGraphQLBackend(t);
     const from = new Date("2026-10-25T00:00:00Z");
     const to = new Date("2026-10-25T06:00:00Z");
-    const got = await b.history("analogical", { path: "vds.wf.*.*.p_kw", from, to });
-    expect(calls[0]?.variables).toEqual({ filter: { name: "^p_kw$", timestamp: { from: from.toISOString(), to: to.toISOString() } } });
-    expect(got.map((m) => m.id)).toEqual(["vds.wf.f1.t01::p_kw", "vds.wf.f2.t07::p_kw"]);
+    const got = await b.history("analogical", { paths: ["vds.wf.*.*.p_kw"], from, to, order: "desc", first: 50_000, after: "c1" });
+    expect(calls[0]?.query).toBe(documents.HIST_ANALOGICAL);
+    expect(calls[0]?.variables).toEqual({
+      paths: ["vds.wf.*.*.p_kw"],
+      timestamp: { from: from.toISOString(), to: to.toISOString() },
+      order: "DESC",
+      first: 10_000,
+      after: "c1",
+    });
+    expect(got.items.map((m) => m.id)).toEqual(["vds.wf.f1.t01::p_kw", "vds.wf.f2.t07::p_kw"]);
+    expect(got.next).toBe("c2");
   });
 
-  it("sends no name filter for a trailing wildcard and refuses names that are not plain", async () => {
-    const { t, calls } = fakeTransport({ histDiscrete: [] });
+  it("ends on the last page, omits an open range, and sends nothing for no paths", async () => {
+    const { t, calls } = fakeTransport({ histDiscrete: { pageInfo: { hasNextPage: false, endCursor: "x" }, nodes: [] } });
     const b = createGraphQLBackend(t);
-    await b.history("discrete", { path: "vds.sub.>" });
-    expect(calls[0]?.variables).toEqual({ filter: { timestamp: { from: undefined, to: undefined } } });
-    await expect(b.history("discrete", { path: "vds.sub.x.p'; drop" })).rejects.toThrow("unsupported name segment");
+    await expect(b.history("discrete", { paths: ["vds.sub.>"] })).resolves.toEqual({ items: [], next: null });
+    expect(calls[0]?.variables).toMatchObject({ paths: ["vds.sub.>"], timestamp: undefined, order: "ASC", first: 1_000 });
+    await expect(b.history("discrete", { paths: [] })).resolves.toEqual({ items: [], next: null });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("pages the alarm history like the measurement history", async () => {
+    const alarm = { name: "a", area: "vds.sub", condition: "_", instanceId: "i1", timestamp: "2026-10-25T01:00:00Z", state: "Set", value: 1, severity: "low", ack: "NotAck", ackTimestamp: null, actorId: null, actorDisplay: null };
+    const { t, calls } = fakeTransport({ alm: { pageInfo: { hasNextPage: false, endCursor: "c9" }, nodes: [alarm] } });
+    const b = createGraphQLBackend(t);
+    const from = new Date("2026-10-25T00:00:00Z");
+    const to = new Date("2026-10-25T06:00:00Z");
+    const got = await b.alarmHistory({ from, to, order: "desc", first: 500, after: "c8" });
+    expect(calls[0]?.query).toBe(documents.ALARM_HISTORY);
+    expect(calls[0]?.variables).toEqual({
+      filter: { timestamp: { from: from.toISOString(), to: to.toISOString() } },
+      order: "DESC",
+      first: 500,
+      after: "c8",
+    });
+    expect(got.items.map((a) => a.instanceId)).toEqual(["i1"]);
+    expect(got.next).toBeNull();
   });
 });

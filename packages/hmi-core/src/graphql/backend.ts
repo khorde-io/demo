@@ -1,8 +1,7 @@
 /** `ScadaBackend` over the Khorde GraphQL API. */
 
-import type { CommandRequest, HeartbeatKind, HistoryFilter, ScadaBackend, TimeRange } from "../backend.ts";
-import { pointPath, type Measurement } from "../model.ts";
-import { matchPath } from "../paths.ts";
+import type { CommandRequest, HeartbeatKind, HistoryQuery, RangePageQuery, ScadaBackend, TimeRange } from "../backend.ts";
+import { PAGE_MAX, type Page } from "../pages.ts";
 import type {
   CommandKey,
   InterlockDetail,
@@ -30,22 +29,21 @@ function timestampFilter(range: TimeRange) {
   return { from: iso(range.from), to: iso(range.to) };
 }
 
-/**
- * The hub filters history by a regex on the point name only (`name ~ '…'`);
- * path wildcards are planned. Until then the name segment of the path becomes
- * an anchored regex and the equipment part is filtered here. When the backend
- * takes paths, only `history` below changes: it sends the path as is.
- */
-export function historyNameFilter(path: string | undefined): string | undefined {
-  if (!path) return undefined;
-  const name = path.split(".").at(-1) ?? "";
-  if (name === "*" || name === ">" || name === "") return undefined;
-  if (!/^[\w-]+$/.test(name)) throw new Error(`History path has an unsupported name segment: ${path}`);
-  return `^${name}$`;
+const DEFAULT_PAGE = 1_000;
+
+type RawPage<T> = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: T[] };
+
+/** The paging arguments shared by `histAnalogical`, `histDiscrete` and `alm`. */
+function pageVars(query: RangePageQuery) {
+  return {
+    order: query.order === "desc" ? "DESC" : "ASC",
+    first: Math.min(PAGE_MAX, Math.max(1, query.first ?? DEFAULT_PAGE)),
+    after: query.after,
+  };
 }
 
-function keepPath(path: string | undefined) {
-  return (m: Measurement) => !path || matchPath(path, pointPath(m.id));
+function toPage<R, T>(raw: RawPage<R>, map: (r: R) => T): Page<T> {
+  return { items: raw.nodes.map(map), next: raw.pageInfo.hasNextPage ? raw.pageInfo.endCursor : null };
 }
 
 const commandVars = (key: CommandKey) => ({ agent: key.agent, equipment: key.equipment, name: key.name });
@@ -70,14 +68,19 @@ export function createGraphQLBackend(transport: Transport): ScadaBackend {
       });
     },
 
-    async history(type: MeasurementType, filter: HistoryFilter) {
-      const name = historyNameFilter(filter.path);
-      const variables = { filter: { ...(name ? { name } : {}), timestamp: timestampFilter(filter) } };
-      const raw =
+    async history(type: MeasurementType, query: HistoryQuery) {
+      // The API returns no rows for no paths; skip the round trip.
+      if (query.paths.length === 0) return { items: [], next: null };
+      const variables = {
+        paths: query.paths,
+        timestamp: query.from || query.to ? timestampFilter(query) : undefined,
+        ...pageVars(query),
+      };
+      const page =
         type === "analogical"
-          ? (await request<{ histAnalogical: RawMeasurement[] }>(doc.HIST_ANALOGICAL, variables)).histAnalogical
-          : (await request<{ histDiscrete: RawMeasurement[] }>(doc.HIST_DISCRETE, variables)).histDiscrete;
-      return raw.map(toMeasurement).filter(keepPath(filter.path));
+          ? (await request<{ histAnalogical: RawPage<RawMeasurement> }>(doc.HIST_ANALOGICAL, variables)).histAnalogical
+          : (await request<{ histDiscrete: RawPage<RawMeasurement> }>(doc.HIST_DISCRETE, variables)).histDiscrete;
+      return toPage(page, toMeasurement);
     },
 
     async activeAlarms(areas = []) {
@@ -85,9 +88,9 @@ export function createGraphQLBackend(transport: Transport): ScadaBackend {
       return d.activeAlm.map(toAlarm);
     },
 
-    async alarmHistory(range) {
-      const d = await request<{ alm: RawAlarm[] }>(doc.ALARM_HISTORY, { filter: { timestamp: timestampFilter(range) } });
-      return d.alm.map(toAlarm);
+    async alarmHistory(query) {
+      const d = await request<{ alm: RawPage<RawAlarm> }>(doc.ALARM_HISTORY, { filter: { timestamp: timestampFilter(query) }, ...pageVars(query) });
+      return toPage(d.alm, toAlarm);
     },
 
     subscribeAlarms(areas, sink) {

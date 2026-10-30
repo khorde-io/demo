@@ -50,7 +50,7 @@ visual rules, see [ISA-101 rationale](isa-101.md).
 | `commands` | Select, confirm, request, track. Select checks permission and interlock and expires; execute re-checks, sends, and polls `requestUpdate` to a final state. |
 | `interlocks` | Parses `commandInterlockDetail` into a tree for the ladder, and watches the state of each command, re-querying when an input changes. |
 | `topology` | Energization from what is measured: a wiring description and a pure `energize` function. |
-| `history` | Trend history, split into chunks, merged and reduced without losing peaks. |
+| `history` | Trend history: follows the API's pages, newest first, up to a row cap, and reduces each series without losing peaks. |
 | `agents` | Agent and site heartbeats, and the registry. |
 | `i18n` | Layered catalogs (library, then project), patterns for state labels, names and units, `Intl` formatting. |
 | `config`, `theme`, `hmi` | The runtime config, the active theme, and `createHmi`, which wires it all together. |
@@ -60,9 +60,10 @@ visual rules, see [ISA-101 rationale](isa-101.md).
 
 | Need | API | Consequence |
 |---|---|---|
+| Trend history | `histAnalogical`, `histDiscrete` with `paths`, `timestamp`, `order`, `first`, `after` | The same path patterns as live values, so one query covers every point of a trend. Pages come through a cursor (`pageInfo.endCursor`), up to 10,000 rows each. The client asks newest first, so if it stops at its row cap it is the oldest rows that are left out. |
 | Live values | `measByPaths(paths)` subscription | Paths take `*` (one segment) and `>` (the rest), so equipment ids are hierarchical (`vds.sub.mv.a.f1.cb`). A new subscription sends the cached value of every match first, so there's no snapshot query. |
 | Quality | `Measurement.quality`, `good` or `bad` | Anything else is treated as `bad`. |
-| Alarms | `activeAlm`, `almSubscribe`, `alm(filter)`, `almAck(instanceId)` | The subscription streams changes, not the list, so the client applies the active-alarm rule. The store subscribes before the initial query and buffers, so nothing raised in between is lost. `alm` feeds the event log only. |
+| Alarms | `activeAlm`, `almSubscribe`, `alm(filter)`, `almAck(instanceId)` | The subscription streams changes, not the list, so the client applies the active-alarm rule. The store subscribes before the initial query and buffers, so nothing raised in between is lost. `alm` feeds the event log only; it is paged like trend history, newest first, up to 50,000 changes. |
 | Commands | `discreteCommandRequest`, `analogicalCommandRequest` | A discrete command carries no value: the name is the action (`pos.open`). There's no select-before-operate in the API, so select/confirm is in the client. |
 | Command progress | `requestUpdate(requestId)` | No subscription, so it is polled. The dialog shows each step. |
 | Interlocks | `commandInterlockStates`, `commandInterlockDetail` | Queried, not streamed: the HMI re-queries when an input point changes. Buttons show the state; the ladder shows the tree with the condition that blocks. |
@@ -75,12 +76,9 @@ visual rules, see [ISA-101 rationale](isa-101.md).
 Each workaround sits behind the backend interface, so only the query
 building changes when the API does.
 
-- **History filter:** `MeasFilter.name` is a regex on the point name only, so
-  it can't select by equipment or take `*` / `>`. The client sends an
-  anchored name regex (`^p_mw$`) and filters equipment itself. The value is
-  put into the SQL unescaped (reported).
-- **No history pagination or downsampling:** the client caps and chunks
-  ranges and reduces the result.
+- **No history downsampling:** the API returns every stored row, so the
+  client caps the rows it fetches and reduces each series to what a chart
+  can draw.
 - **Interlock node paths:** `$` is the root, a child of `and` / `or` adds
   `.<op>.<index>` (`$.and.3.or.0`), and a reference adds `.ref:<key>`. The
   child of a `not` is assumed to add `.not`, since the hub has no `not` yet.

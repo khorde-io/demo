@@ -197,11 +197,11 @@ export function useTrend(ids: readonly PointId[], type: MeasurementType, windowM
     const list = key.split("|") as PointId[];
     const to = Date.now();
     const from = to - windowMs;
-    Promise.all(list.map((id) => history.series({ type, path: pointPath(id), from: new Date(from), to: new Date(to), maxPoints: 600 }))).then(
-      (maps) => {
+    history.series({ type, paths: list.map(pointPath), from: new Date(from), to: new Date(to), maxPoints: 600 }).then(
+      (map) => {
         if (!alive) return;
-        const series = list.map((id, i) => {
-          const s = maps[i]?.get(id);
+        const series = list.map((id) => {
+          const s = map.get(id);
           return { id, label: labelOf.current(id), t: s?.t ?? [], v: s?.v ?? [] };
         });
         setState({ series, from, to, status: "ready" });

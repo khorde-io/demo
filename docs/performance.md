@@ -51,8 +51,9 @@ spending about 105 ms per second rendering.
   path with every other on each change. Both now look exact paths up in a set
   and compare against wildcard patterns only (`pathMatcher`,
   `reducePatterns`). That took 2,000 × 2 Hz from 2 fps to the numbers above.
-- **History is reduced before drawing.** Trends fetch long ranges in chunks
-  and reduce each series to about 600 points while keeping peaks.
+- **History is reduced before drawing.** A trend fetches all its points in
+  one paged query (5,000 rows a page, 200,000 at most, newest first) and
+  reduces each series to about 600 points while keeping peaks.
 
 ## Two modes
 
