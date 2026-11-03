@@ -78,10 +78,13 @@ export const reactMessages = {
     columns: { priority: "Priority", time: "Time", area: "Area", alarm: "Alarm", value: "Value", state: "State", acked: "Acknowledged", action: "Action" },
     ackedBy: "{actor} · {time}",
     ackedNoActor: "Yes · {time}",
+    ackPending: "{actor} · sending to site",
     notAcked: "No",
     summary: "{total} active · {unacked} unacknowledged",
     empty: "No alarms match these filters",
     none: "No active alarms",
+    loading: "Reading the active alarms",
+    failed: "Couldn't read the active alarms",
   },
   alarmHistory: {
     label: "Alarm history",
@@ -94,7 +97,8 @@ export const reactMessages = {
     empty: "No alarm changes in this period",
     count: "{count} changes",
     columns: { time: "Time", priority: "Priority", area: "Area", alarm: "Alarm", value: "Value", change: "Change", by: "By" },
-    change: { Set: "Raised", Reset: "Returned", Event: "Event", ack: "Acknowledged" },
+    change: { SET: "Raised", RESET: "Returned", EVENT: "Event", ACK: "Acknowledged", GAP: "Gap" },
+    gap: "Changes were lost during an outage at {origin}",
   },
   faceplate: {
     close: "Close",

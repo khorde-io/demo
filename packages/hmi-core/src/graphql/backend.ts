@@ -3,6 +3,7 @@
 import type { CommandRequest, HeartbeatKind, HistoryQuery, RangePageQuery, ScadaBackend, TimeRange } from "../backend.ts";
 import { PAGE_MAX, type Page } from "../pages.ts";
 import type {
+  AckStatus,
   CommandKey,
   InterlockDetail,
   InterlockState,
@@ -12,12 +13,14 @@ import type {
 } from "../model.ts";
 import * as doc from "./documents.ts";
 import {
-  toAlarm,
+  toAlarmChange,
   toHeartbeat,
+  toJournalEntry,
   toMeasurement,
   toRequestUpdate,
-  type RawAlarm,
+  type RawAlarmChange,
   type RawHeartbeat,
+  type RawJournalEntry,
   type RawMeasurement,
   type RawRequestUpdate,
 } from "./map.ts";
@@ -33,7 +36,7 @@ const DEFAULT_PAGE = 1_000;
 
 type RawPage<T> = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: T[] };
 
-/** The paging arguments shared by `histAnalogical`, `histDiscrete` and `alm`. */
+/** The paging arguments shared by `histAnalogical`, `histDiscrete` and `alarmJournal`. */
 function pageVars(query: RangePageQuery) {
   return {
     order: query.order === "desc" ? "DESC" : "ASC",
@@ -83,26 +86,24 @@ export function createGraphQLBackend(transport: Transport): ScadaBackend {
       return toPage(page, toMeasurement);
     },
 
-    async activeAlarms(areas = []) {
-      const d = await request<{ activeAlm: RawAlarm[] }>(doc.ACTIVE_ALARMS, { areas });
-      return d.activeAlm.map(toAlarm);
-    },
-
-    async alarmHistory(query) {
-      const d = await request<{ alm: RawPage<RawAlarm> }>(doc.ALARM_HISTORY, { filter: { timestamp: timestampFilter(query) }, ...pageVars(query) });
-      return toPage(d.alm, toAlarm);
-    },
-
-    subscribeAlarms(areas, sink) {
-      return subscribe<{ almSubscribe: RawAlarm }>(doc.ALARM_SUBSCRIBE, { areas }, {
-        next: (d) => sink.next(toAlarm(d.almSubscribe)),
+    subscribeActiveAlarms(areas, sink) {
+      return subscribe<{ activeAlarmChanges: RawAlarmChange }>(doc.ACTIVE_ALARM_CHANGES, { areas }, {
+        next: (d) => {
+          const change = toAlarmChange(d.activeAlarmChanges);
+          if (change) sink.next(change);
+        },
         error: sink.error,
       });
     },
 
-    async ackAlarm(instanceId) {
-      const d = await request<{ almAck: boolean }>(doc.ALARM_ACK, { instanceId });
-      return d.almAck;
+    async alarmJournal(query) {
+      const d = await request<{ alarmJournal: RawPage<RawJournalEntry> }>(doc.ALARM_JOURNAL, { filter: { timestamp: timestampFilter(query) }, ...pageVars(query) });
+      return toPage(d.alarmJournal, toJournalEntry);
+    },
+
+    async ackAlarm(key, instanceId) {
+      const d = await request<{ ackAlarm: { status: AckStatus } }>(doc.ACK_ALARM, { key, instanceId });
+      return d.ackAlarm.status;
     },
 
     async sendCommand(key: CommandKey, req: CommandRequest) {

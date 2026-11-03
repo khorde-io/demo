@@ -126,7 +126,7 @@ export function bannerAlarm(alarms: readonly Alarm[]): Alarm | null {
   const pick = (list: readonly Alarm[]) =>
     list.reduce<Alarm | null>((best, a) => {
       if (!best) return a;
-      const dt = a.timestamp.getTime() - best.timestamp.getTime();
+      const dt = a.stateAt.getTime() - best.stateAt.getTime();
       return dt > 0 || (dt === 0 && a.priority < best.priority) ? a : best;
     }, null);
   return pick(alarms.filter((a) => !a.acked)) ?? pick(alarms);
@@ -202,7 +202,7 @@ function UserMenu({ user, onSwitchUser, onSignOut }: { user: { name: string; rol
 
 export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, onSwitchUser, onSignOut, timeZone, now: fixedNow, onOpenAlarms, onAck }: HeaderProps) {
   const i18n = useI18n();
-  const { alarms, counts } = useAlarms();
+  const { alarms, counts, loaded, error } = useAlarms();
   const now = useNow(fixedNow);
   const locale = i18n.locale.get();
   const latest = bannerAlarm(alarms);
@@ -288,13 +288,13 @@ export function Header({ site, nav, active, onNavigate, breadcrumb = [], user, o
           {latest ? (
             <>
               <AlarmIndicator priority={latest.priority} indication={alarmIndication(latest)} size={18} />
-              <span className="kh-banner-time">{i18n.formatDateTime(latest.timestamp, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", ...tz })}</span>
+              <span className="kh-banner-time">{i18n.formatDateTime(latest.stateAt, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", ...tz })}</span>
               <span className="kh-banner-text">{i18n.alarmText(latest)}</span>
               <span className="kh-banner-area">{i18n.equipmentName(latest.area)}</span>
               {!latest.acked && <span className={`kh-banner-pill kh-banner-pill--p${latest.priority}`}>{i18n.t("alarm.unacked")}</span>}
             </>
           ) : (
-            <span className="kh-banner-none">{i18n.t("shell.noAlarms")}</span>
+            <span className="kh-banner-none">{i18n.t(loaded ? "shell.noAlarms" : error ? "alarmList.failed" : "alarmList.loading")}</span>
           )}
         </div>
         <div className="kh-banner-actions">

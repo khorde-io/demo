@@ -5,8 +5,9 @@
  */
 
 const MEASUREMENT = "name equipment timestamp type value quality";
-const ALARM =
-  "name area condition instanceId timestamp state value severity ack ackTimestamp actorId actorDisplay";
+const ACTIVE_ALARM =
+  "key origin name area condition instanceId state severity value setAt stateAt ack ackedAt ackedBy originOnline";
+const JOURNAL_ENTRY = "timestamp kind origin name area condition instanceId state value severity ack ackedAt ackedBy";
 
 export const MEAS_BY_PATHS = /* GraphQL */ `
   subscription MeasByPaths($paths: [String!]!) {
@@ -38,30 +39,28 @@ export const HIST_DISCRETE = /* GraphQL */ `
   }
 `;
 
-export const ACTIVE_ALARMS = /* GraphQL */ `
-  query ActiveAlarms($areas: [String!]!) {
-    activeAlm(areas: $areas) { ${ALARM} }
-  }
-`;
-
-export const ALARM_HISTORY = /* GraphQL */ `
-  query AlarmHistory($filter: AlarmFilter, $order: HistOrder!, $first: Int!, $after: String) {
-    alm(filter: $filter, order: $order, first: $first, after: $after) {
-      pageInfo { hasNextPage endCursor }
-      nodes { ${ALARM} }
+export const ACTIVE_ALARM_CHANGES = /* GraphQL */ `
+  subscription ActiveAlarmChanges($areas: [String!]!) {
+    activeAlarmChanges(areas: $areas) {
+      kind
+      instanceId
+      alarm { ${ACTIVE_ALARM} }
     }
   }
 `;
 
-export const ALARM_SUBSCRIBE = /* GraphQL */ `
-  subscription AlarmSubscribe($areas: [String!]!) {
-    almSubscribe(areas: $areas) { ${ALARM} }
+export const ALARM_JOURNAL = /* GraphQL */ `
+  query AlarmJournal($filter: AlarmFilter, $order: HistOrder!, $first: Int!, $after: String) {
+    alarmJournal(filter: $filter, order: $order, first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ${JOURNAL_ENTRY} }
+    }
   }
 `;
 
-export const ALARM_ACK = /* GraphQL */ `
-  mutation AlarmAck($instanceId: UUID!) {
-    almAck(instanceId: $instanceId)
+export const ACK_ALARM = /* GraphQL */ `
+  mutation AckAlarm($key: ID!, $instanceId: UUID!) {
+    ackAlarm(key: $key, instanceId: $instanceId) { status }
   }
 `;
 

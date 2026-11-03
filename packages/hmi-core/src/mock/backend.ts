@@ -5,7 +5,7 @@
  * tests and to run the demo without a hub.
  */
 
-import type { CommandRequest, HeartbeatKind, ScadaBackend, Sink } from "../backend.ts";
+import type { ActiveAlarmChange, CommandRequest, HeartbeatKind, ScadaBackend, Sink } from "../backend.ts";
 import type { ConnectionState } from "../graphql/transport.ts";
 import { evaluate, expandRefs, type Expression } from "../interlocks.ts";
 import {
@@ -14,6 +14,8 @@ import {
   pointId,
   pointPath,
   type Alarm,
+  type AlarmJournalEntry,
+  type AlarmJournalKind,
   type AlarmSeverity,
   type CommandKey,
   type Connectivity,
@@ -91,6 +93,8 @@ export interface MockBackendOptions {
 }
 
 export interface MockBackend extends ScadaBackend {
+  /** The active summary right now, for tests. */
+  activeAlarms(): Alarm[];
   publish(id: PointId, value: PointRawValue, options?: { quality?: Quality; timestamp?: Date }): void;
   value(id: PointId): Measurement | undefined;
   setConnection(state: ConnectionState): void;
@@ -144,8 +148,8 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
   const measSubs = new Set<{ match: (m: Measurement) => boolean; sink: Sink<Measurement> }>();
 
   const active = new Map<string, Alarm>();
-  const alarmLog: Alarm[] = [];
-  const alarmSubs = new Set<{ areas: readonly string[]; sink: Sink<Alarm> }>();
+  const journal: AlarmJournalEntry[] = [];
+  const alarmSubs = new Set<{ areas: readonly string[]; sink: Sink<ActiveAlarmChange> }>();
 
   const commands = options.commands ?? [];
   const interlocks = options.interlocks ?? {};
@@ -165,10 +169,19 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
     for (const s of [...measSubs]) if (s.match(m)) defer(() => measSubs.has(s) && s.sink.next(m));
   };
 
-  const emitAlarm = (a: Alarm) => {
+  const emitAlarmChange = (area: string, change: ActiveAlarmChange) => {
+    if (!online()) return;
     for (const s of [...alarmSubs]) {
-      if (s.areas.length === 0 || matchAny(s.areas, a.area)) defer(() => alarmSubs.has(s) && s.sink.next(a));
+      if (s.areas.length === 0 || matchAny(s.areas, area)) defer(() => alarmSubs.has(s) && s.sink.next(change));
     }
+  };
+
+  /** What a new subscription gets first: every active alarm, then `synced`. */
+  const sendSummary = (s: { areas: readonly string[]; sink: Sink<ActiveAlarmChange> }) => {
+    for (const alarm of active.values()) {
+      if (s.areas.length === 0 || matchAny(s.areas, alarm.area)) defer(() => alarmSubs.has(s) && s.sink.next({ kind: "upsert", alarm }));
+    }
+    defer(() => alarmSubs.has(s) && s.sink.next({ kind: "synced" }));
   };
 
   const publish: MockBackend["publish"] = (id, value, opts = {}) => {
@@ -221,27 +234,41 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
     };
   };
 
-  const makeAlarm = (input: MockAlarmInput, state: Alarm["state"]): Alarm => ({
-    instanceId: uuid(),
-    name: input.name,
-    area: input.area,
-    condition: input.condition ?? "set",
-    state,
-    severity: input.severity,
-    priority: PRIORITY_BY_SEVERITY[input.severity],
-    value: input.value ?? 1,
-    timestamp: now(),
-    acked: false,
-    ackTimestamp: null,
-    actorId: null,
-    actorDisplay: null,
-  });
+  const makeAlarm = (input: MockAlarmInput, state: Alarm["state"]): Alarm => {
+    const condition = input.condition ?? "set";
+    const at = now();
+    return {
+      key: `${input.name}/${condition}`,
+      instanceId: uuid(),
+      origin: "mock",
+      name: input.name,
+      area: input.area,
+      condition,
+      state,
+      severity: input.severity,
+      priority: PRIORITY_BY_SEVERITY[input.severity],
+      value: input.value ?? 1,
+      setAt: at,
+      stateAt: at,
+      acked: false,
+      ackPending: false,
+      ackedAt: null,
+      ackedBy: null,
+      originOnline: true,
+    };
+  };
 
-  const record = (a: Alarm) => {
-    alarmLog.push(a);
-    if (a.state === "Set" || !a.acked) active.set(a.instanceId, a);
-    else active.delete(a.instanceId);
-    emitAlarm(a);
+  /** Writes the journal row and applies the hub's rule: listed until returned and acknowledged. */
+  const record = (kind: AlarmJournalKind, a: Alarm) => {
+    const { name, area, condition, instanceId, origin, state, severity, priority, value, acked, ackedAt, ackedBy } = a;
+    journal.push({ timestamp: kind === "ACK" ? (ackedAt ?? now()) : a.stateAt, kind, origin, name, area, condition, instanceId, state, severity, priority, value, acked, ackedAt, ackedBy });
+    if (a.state === "Set" || !a.acked) {
+      active.set(instanceId, a);
+      emitAlarmChange(area, { kind: "upsert", alarm: a });
+    } else {
+      active.delete(instanceId);
+      emitAlarmChange(area, { kind: "remove", instanceId });
+    }
     return a;
   };
 
@@ -279,31 +306,30 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
       return page(rows, query);
     },
 
-    async activeAlarms(areas = []) {
-      return [...active.values()].filter((a) => areas.length === 0 || matchAny(areas, a.area));
+    activeAlarms: () => [...active.values()],
+
+    subscribeActiveAlarms(areas, sink) {
+      const s = { areas, sink };
+      alarmSubs.add(s);
+      if (online()) sendSummary(s);
+      return () => alarmSubs.delete(s);
     },
 
-    async alarmHistory(query) {
+    async alarmJournal(query) {
       // Ordered like the hub: by timestamp, then instance id.
       const dir = query.order === "desc" ? -1 : 1;
-      const rows = alarmLog
-        .filter((a) => (!query.from || a.timestamp >= query.from) && (!query.to || a.timestamp <= query.to))
+      const rows = journal
+        .filter((e) => (!query.from || e.timestamp >= query.from) && (!query.to || e.timestamp <= query.to))
         .sort((a, b) => dir * (a.timestamp.getTime() - b.timestamp.getTime()) || a.instanceId.localeCompare(b.instanceId));
       return page(rows, query);
     },
 
-    subscribeAlarms(areas, sink) {
-      const s = { areas, sink };
-      alarmSubs.add(s);
-      return () => alarmSubs.delete(s);
-    },
-
-    async ackAlarm(instanceId) {
+    async ackAlarm(key, instanceId) {
       const a = active.get(instanceId);
-      if (!a) return false;
-      const by = actor();
-      record({ ...a, acked: true, ackTimestamp: now(), actorId: by.id, actorDisplay: by.display });
-      return true;
+      if (!a || a.key !== key) return "NOT_FOUND";
+      if (a.acked) return "ALREADY_ACKED";
+      record("ACK", { ...a, acked: true, ackedAt: now(), ackedBy: actor().display });
+      return "ACKED";
     },
 
     async sendCommand(key, request) {
@@ -376,16 +402,19 @@ export function createMockBackend(options: MockBackendOptions = {}): MockBackend
       connection.set(state);
       // Like graphql-ws after a reconnect: subscriptions resume and the server
       // re-sends cached values.
-      if (!was && online()) for (const s of measSubs) for (const m of current.values()) if (s.match(m)) defer(() => s.sink.next(m));
+      if (!was && online()) {
+        for (const s of measSubs) for (const m of current.values()) if (s.match(m)) defer(() => s.sink.next(m));
+        for (const s of alarmSubs) sendSummary(s);
+      }
     },
 
-    raiseAlarm: (input) => record(makeAlarm(input, "Set")),
-    raiseEvent: (input) => record(makeAlarm(input, "Event")),
+    raiseAlarm: (input) => record("SET", makeAlarm(input, "Set")),
+    raiseEvent: (input) => record("EVENT", makeAlarm(input, "Event")),
 
     resetAlarm(instanceId) {
       const a = active.get(instanceId);
       if (!a) return undefined;
-      return record({ ...a, state: "Reset", timestamp: now() });
+      return record("RESET", { ...a, state: "Reset", stateAt: now() });
     },
 
     setHeartbeat(kind, id, status) {

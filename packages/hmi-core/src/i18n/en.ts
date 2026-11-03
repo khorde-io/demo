@@ -15,6 +15,8 @@ export const en = {
     priority: "Priority {priority}",
     acked: "Acknowledged",
     unacked: "Not acknowledged",
+    ackPending: "Acknowledged, on its way to the site",
+    lastKnown: "Last known",
     ackedBy: "Acknowledged by {actor} at {time}",
   },
   command: {

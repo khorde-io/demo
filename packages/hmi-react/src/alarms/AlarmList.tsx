@@ -123,7 +123,7 @@ export function AlarmList({ areas = [], selectedId = null, onSelect, alarms, onA
                 <td className="kh-col-priority">
                   <AlarmIndicator priority={a.priority} indication={alarmIndication(a)} />
                 </td>
-                <td className="kh-num">{i18n.formatDateTime(a.timestamp, TIME)}</td>
+                <td className="kh-num">{i18n.formatDateTime(a.stateAt, TIME)}</td>
                 <td>{i18n.equipmentName(a.area)}</td>
                 <td>
                   {onSelect ? (
@@ -135,13 +135,18 @@ export function AlarmList({ areas = [], selectedId = null, onSelect, alarms, onA
                   )}
                 </td>
                 <td className="kh-num">{i18n.formatNumber(a.value, { maximumFractionDigits: 2 })}</td>
-                <td>{i18n.t(`alarm.state.${a.state}`)}</td>
                 <td>
-                  {a.acked
-                    ? a.actorDisplay
-                      ? i18n.t("alarmList.ackedBy", { actor: a.actorDisplay, time: a.ackTimestamp ? i18n.formatDateTime(a.ackTimestamp, TIME) : "" })
-                      : i18n.t("alarmList.ackedNoActor", { time: a.ackTimestamp ? i18n.formatDateTime(a.ackTimestamp, TIME) : "" })
-                    : i18n.t("alarmList.notAcked")}
+                  {i18n.t(`alarm.state.${a.state}`)}
+                  {!a.originOnline && ` · ${i18n.t("alarm.lastKnown")}`}
+                </td>
+                <td>
+                  {a.ackPending
+                    ? i18n.t("alarmList.ackPending", { actor: a.ackedBy ?? "" })
+                    : a.acked
+                      ? a.ackedBy
+                        ? i18n.t("alarmList.ackedBy", { actor: a.ackedBy, time: a.ackedAt ? i18n.formatDateTime(a.ackedAt, TIME) : "" })
+                        : i18n.t("alarmList.ackedNoActor", { time: a.ackedAt ? i18n.formatDateTime(a.ackedAt, TIME) : "" })
+                      : i18n.t("alarmList.notAcked")}
                 </td>
                 <td className="kh-col-action">
                   {mayAck && !a.acked && (
@@ -154,7 +159,7 @@ export function AlarmList({ areas = [], selectedId = null, onSelect, alarms, onA
             ))}
           </tbody>
         </table>
-        {visible.length === 0 && <p className="kh-empty">{i18n.t(list.length === 0 ? "alarmList.none" : "alarmList.empty")}</p>}
+        {visible.length === 0 && <p className="kh-empty">{i18n.t(list.length > 0 ? "alarmList.empty" : alarms || snapshot.loaded ? "alarmList.none" : snapshot.error ? "alarmList.failed" : "alarmList.loading")}</p>}
       </div>
       <p className="kh-alarms-foot">{i18n.t("alarmList.summary", { total: list.length, unacked: list.filter((a) => !a.acked).length })}</p>
     </section>

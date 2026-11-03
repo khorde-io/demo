@@ -1,4 +1,144 @@
 """
+Result of `ackAlarm`.
+"""
+type AckAlarmResult {
+	"""
+	What happened.
+	"""
+	status: AckAlarmStatus!
+	"""
+	The instance after the ack. Absent when `NOT_FOUND`.
+	"""
+	alarm: ActiveAlarm
+}
+
+"""
+Outcome of `ackAlarm`.
+"""
+enum AckAlarmStatus {
+	"""
+	The owner recorded this ack.
+	"""
+	ACKED
+	"""
+	The instance was already acknowledged. The first ack stands.
+	"""
+	ALREADY_ACKED
+	"""
+	Queued for an owner site, which applies it when it can be reached.
+	"""
+	PENDING
+	"""
+	No such active instance: it left the summary or never existed.
+	"""
+	NOT_FOUND
+}
+
+"""
+An alarm instance in the summary: currently `Set`, or returned to normal
+and not acknowledged yet.
+"""
+type ActiveAlarm {
+	"""
+	Identifies the subcondition. Pass it to `ackAlarm`.
+	"""
+	key: ID!
+	"""
+	Deployment that owns the alarm: a site, or this hub.
+	"""
+	origin: String!
+	"""
+	Alarm name.
+	"""
+	name: String!
+	"""
+	Alarm area.
+	"""
+	area: String!
+	"""
+	Subcondition identity.
+	"""
+	condition: String!
+	"""
+	Identity of this occurrence.
+	"""
+	instanceId: UUID!
+	"""
+	Alarm state.
+	"""
+	state: AlarmState!
+	"""
+	Alarm severity.
+	"""
+	severity: AlarmSeverity!
+	"""
+	Measurement value at the last state change.
+	"""
+	value: Float!
+	"""
+	When this occurrence started.
+	"""
+	setAt: DateTime!
+	"""
+	When the state last changed.
+	"""
+	stateAt: DateTime!
+	"""
+	Acknowledge status.
+	"""
+	ack: AlarmAckStatus!
+	"""
+	When it was acknowledged, if it was.
+	"""
+	ackedAt: DateTime
+	"""
+	Who acknowledged it, if anyone.
+	"""
+	ackedBy: String
+	"""
+	Whether the owner is reachable. When false, this is its last known
+	state.
+	"""
+	originOnline: Boolean!
+}
+
+"""
+One change of the active alarm summary.
+"""
+type ActiveAlarmChange {
+	"""
+	What changed.
+	"""
+	kind: ActiveAlarmChangeKind!
+	"""
+	Instance concerned. Absent on `SYNCED`.
+	"""
+	instanceId: UUID
+	"""
+	The instance after the change. Only on `UPSERT`.
+	"""
+	alarm: ActiveAlarm
+}
+
+"""
+What an [`ActiveAlarmChange`] says.
+"""
+enum ActiveAlarmChangeKind {
+	"""
+	The instance is new or changed. `alarm` holds it.
+	"""
+	UPSERT
+	"""
+	The instance left the summary.
+	"""
+	REMOVE
+	"""
+	Every alarm active when the subscription started has been sent.
+	"""
+	SYNCED
+}
+
+"""
 Agent liveness derived from the last heartbeat.
 """
 enum AgentConnectivity {
@@ -26,74 +166,54 @@ type AgentHeartbeat {
 }
 
 """
-Alarm representation after an evaluation
+Acknowledge status of an alarm instance.
 """
-type Alarm {
+enum AlarmAckStatus {
 	"""
-	Alarm name
+	Not acknowledged.
 	"""
-	name: String!
+	NOT_ACK
 	"""
-	Area of the alarm
+	Acknowledged by the alarm's owner.
 	"""
-	area: String!
+	ACK
 	"""
-	Subcondition identity
+	Acknowledged on the hub and on its way to an owner site.
 	"""
-	condition: String!
-	"""
-	Identity of this Set (copied onto the matching Reset).
-	"""
-	instanceId: UUID!
-	"""
-	Timestamp of last modification
-	"""
-	timestamp: DateTime!
-	"""
-	Alarm state
-	"""
-	state: AlarmState!
-	"""
-	Value of the associated measurement
-	"""
-	value: Float!
-	"""
-	Alarm severity
-	"""
-	severity: AlarmSeverity!
-	"""
-	Acknowledge status of this instance (joined from the ack table).
-	"""
-	ack: AlarmAck!
-	"""
-	When this instance was acknowledged, if ever.
-	"""
-	ackTimestamp: DateTime
-	"""
-	JWT `sub` of the user who last acknowledged this instance, if any.
-	"""
-	actorId: String
-	"""
-	Display name for [`Self::actor_id`], if any.
-	"""
-	actorDisplay: String
+	ACK_PENDING
 }
 
 """
-Alarms acknowledge status
+What one alarm journal row records.
 """
-enum AlarmAck {
+enum AlarmEventKind {
 	"""
-	Alarm acknowledged
+	The alarm became active.
 	"""
-	Ack
+	SET
 	"""
-	Alarm not acknowledged
+	The alarm returned to normal.
 	"""
-	NotAck
+	RESET
+	"""
+	An edge-only event occurred.
+	"""
+	EVENT
+	"""
+	An operator acknowledged the instance.
+	"""
+	ACK
+	"""
+	Events were lost: the source retention expired during an outage.
+	"""
+	GAP
 }
 
-type AlarmConnection {
+input AlarmFilter {
+	timestamp: TimestampFilter!
+}
+
+type AlarmJournalConnection {
 	"""
 	Information to aid in pagination.
 	"""
@@ -101,29 +221,87 @@ type AlarmConnection {
 	"""
 	A list of edges.
 	"""
-	edges: [AlarmEdge!]!
+	edges: [AlarmJournalEdge!]!
 	"""
 	A list of nodes.
 	"""
-	nodes: [Alarm!]!
+	nodes: [AlarmJournalEntry!]!
 }
 
 """
 An edge in a connection.
 """
-type AlarmEdge {
+type AlarmJournalEdge {
 	"""
 	The item at the end of the edge
 	"""
-	node: Alarm!
+	node: AlarmJournalEntry!
 	"""
 	A cursor for use in pagination
 	"""
 	cursor: String!
 }
 
-input AlarmFilter {
-	timestamp: TimestampFilter!
+"""
+One row of the alarm journal, as it was at that moment.
+"""
+type AlarmJournalEntry {
+	"""
+	When the change happened.
+	"""
+	timestamp: DateTime!
+	"""
+	What changed.
+	"""
+	kind: AlarmEventKind!
+	"""
+	Deployment that owns the alarm.
+	"""
+	origin: String!
+	"""
+	Alarm name. Empty on a `GAP` row.
+	"""
+	name: String!
+	"""
+	Alarm area. Empty on a `GAP` row.
+	"""
+	area: String!
+	"""
+	Subcondition identity. Empty on a `GAP` row.
+	"""
+	condition: String!
+	"""
+	Alarm instance. Nil on a `GAP` row.
+	"""
+	instanceId: UUID!
+	"""
+	State of the instance. Absent on a `GAP` row.
+	"""
+	state: AlarmState
+	"""
+	Value of the associated measurement. Absent on a `GAP` row.
+	"""
+	value: Float
+	"""
+	Alarm severity. Absent on a `GAP` row.
+	"""
+	severity: AlarmSeverity
+	"""
+	Acknowledge status at that moment.
+	"""
+	ack: AlarmAckStatus!
+	"""
+	When the instance was acknowledged, if it was by then.
+	"""
+	ackedAt: DateTime
+	"""
+	JWT `sub` of the user who acknowledged, if any.
+	"""
+	ackedById: String
+	"""
+	Display name of the user who acknowledged, if any.
+	"""
+	ackedBy: String
 }
 
 """
@@ -276,9 +454,16 @@ enum MeasurementType {
 
 type Mutation {
 	"""
-	Acknowledge an alarm instance.
+	Acknowledge an alarm instance. `key` and `instanceId` come from an
+	active alarm.
+
+	An alarm owned by this deployment is acknowledged right away. An alarm
+	owned by a reachable site gets the same answer once the site confirms
+	it. If the site is out of reach it is queued (`PENDING`, and
+	`ACK_PENDING` on the alarm) and applied when it can be reached. The
+	first ack stands wherever it was entered.
 	"""
-	almAck(instanceId: UUID!): Boolean!
+	ackAlarm(key: ID!, instanceId: UUID!): AckAlarmResult!
 	"""
 	Send an analogical command.
 	"""
@@ -327,25 +512,26 @@ type PageInfo {
 
 type Query {
 	"""
-	Page through the history of alarms (journal rows with the latest ack
-	of their instance).
+	Page through the alarm journal: one row per change of an alarm (`SET`,
+	`RESET`, `EVENT`, `ACK`), as it was at that moment.
 
-	Rows are ordered by timestamp (`order`), then instance id. Pass
-	`pageInfo.endCursor` as `after` to get the next page, and stop when
+	Rows are ordered by timestamp (`order`), then instance id, then kind.
+	Pass `pageInfo.endCursor` as `after` to get the next page, and stop when
 	`pageInfo.hasNextPage` is false. `first` is 1 to 10000 (default 1000). A
 	page can be shorter than `first` while more pages follow. A cursor is
 	only valid with the same `filter` and `order`. Rows stored later with a
 	timestamp behind the cursor are not returned.
 	"""
-	alm(filter: AlarmFilter, order: HistOrder! = ASC, first: Int! = 1000, after: String): AlarmConnection!
+	alarmJournal(filter: AlarmFilter, order: HistOrder! = ASC, first: Int! = 1000, after: String): AlarmJournalConnection!
 	"""
-	List the current active alarms.
+	List the active alarms: those currently `Set`, and those returned to
+	normal and not acknowledged yet. Oldest first.
 
 	Pass `areas` to limit results (same segment wildcards as
-	`almSubscribe`: `*` one segment, trailing `>` for nested areas). Omit or
-	pass an empty list to include every area.
+	`activeAlarmChanges`: `*` one segment, trailing `>` for nested areas).
+	Omit or pass an empty list to include every area.
 	"""
-	activeAlm(areas: [String!]! = []): [Alarm!]!
+	activeAlarms(areas: [String!]! = []): [ActiveAlarm!]!
 	"""
 	Page through the history of discrete measurements.
 
@@ -515,14 +701,19 @@ type SiteHeartbeat {
 
 type Subscription {
 	"""
-	Subscribe to alarms.
+	Follow the active alarm summary.
 
-	Pass `areas` to limit the stream to those alarm areas. Dot-separated
+	Sends an `UPSERT` for each alarm active now, then `SYNCED`, then every
+	change: `UPSERT` when an instance is new or changed, `REMOVE` when it
+	leaves the summary. A reconnect or a server restart may send `SYNCED`
+	again after re-checking; keep applying changes by `instanceId`.
+
+	Pass `areas` to limit the summary to those alarm areas. Dot-separated
 	segments are supported: `*` matches one segment; a trailing `>` matches
 	one or more segments after the prefix, not the prefix itself. Omit or
 	pass an empty list to receive alarms from every area.
 	"""
-	almSubscribe(areas: [String!]! = []): Alarm!
+	activeAlarmChanges(areas: [String!]! = []): ActiveAlarmChange!
 	"""
 	Subscribe to measurements by dot-separated paths (`<equipment>.<name>`).
 
