@@ -46,7 +46,7 @@ visual rules, see [ISA-101 rationale](isa-101.md).
 | `auth` | OIDC code flow with PKCE, silent renew, the account picker on sign-in, and sign-out at the identity provider. Reads the role claim into `can(permission)`. It only decides what the UI offers; the API checks roles again. |
 | `points` | The point store: one `measByPaths` subscription for everything watched, re-opened when the set changes, with listeners notified once per animation frame. A point is stale when its subscription is down or its agent is offline, not because of its age, since unchanged values aren't re-sent. |
 | `paths` | Matching point ids against `*` / `>` patterns, and reducing a set of patterns. |
-| `alarms` | The active list: seeded from `activeAlm`, then kept current from `almSubscribe`, applying the active-alarm rule (ISA-18.2 by default). Counts per priority, ack and ack-many, and the history query for the event log. |
+| `alarms` | The active list: follows `activeAlarmChanges`, applying each change by instance and pruning what left during an outage. Counts per priority, ack and ack-many, and the journal query for the event log. |
 | `commands` | Select, confirm, request, track. Select checks permission and interlock and expires; execute re-checks, sends, and polls `requestUpdate` to a final state. |
 | `interlocks` | Parses `commandInterlockDetail` into a tree for the ladder, and watches the state of each command, re-querying when an input changes. |
 | `topology` | Energization from what is measured: a wiring description and a pure `energize` function. |
@@ -63,7 +63,9 @@ visual rules, see [ISA-101 rationale](isa-101.md).
 | Trend history | `histAnalogical`, `histDiscrete` with `paths`, `timestamp`, `order`, `first`, `after` | The same path patterns as live values, so one query covers every point of a trend. Pages come through a cursor (`pageInfo.endCursor`), up to 10,000 rows each. The client asks newest first, so if it stops at its row cap it is the oldest rows that are left out. |
 | Live values | `measByPaths(paths)` subscription | Paths take `*` (one segment) and `>` (the rest), so equipment ids are hierarchical (`vds.sub.mv.a.f1.cb`). A new subscription sends the cached value of every match first, so there's no snapshot query. |
 | Quality | `Measurement.quality`, `good` or `bad` | Anything else is treated as `bad`. |
-| Alarms | `activeAlm`, `almSubscribe`, `alm(filter)`, `almAck(instanceId)` | The subscription streams changes, not the list, so the client applies the active-alarm rule. The store subscribes before the initial query and buffers, so nothing raised in between is lost. `alm` feeds the event log only; it is paged like trend history, newest first, up to 50,000 changes. |
+| Active alarms | `activeAlarmChanges` subscription | Every active alarm, `SYNCED`, then every change, so there's no initial query and no client-side rule: the hub decides what is active. The list on screen doesn't change until `SYNCED`. After a reconnect the client drops whatever the new subscription didn't list, because the hub can't send a `REMOVE` for what left during the outage. |
+| Acknowledge | `ackAlarm(key, instanceId)` | Returns a status, and the list changes when the change arrives on the subscription, so screens show only what the hub says. `PENDING` (the owner site is out of reach) counts as acknowledged, and the list says it is on its way. `originOnline: false` is shown as the last known state. |
+| Alarm history | `alarmJournal(filter)` | One row per change, so an ack is a row of its own. Filters by time only, so the client filters area, priority and text. Paged like trend history, newest first, up to 50,000 rows. A `GAP` row (changes lost in an outage) stays whatever the filter. |
 | Commands | `discreteCommandRequest`, `analogicalCommandRequest` | A discrete command carries no value: the name is the action (`pos.open`). There's no select-before-operate in the API, so select/confirm is in the client. |
 | Command progress | `requestUpdate(requestId)` | No subscription, so it is polled. The dialog shows each step. |
 | Interlocks | `commandInterlockStates`, `commandInterlockDetail` | Queried, not streamed: the HMI re-queries when an input point changes. Buttons show the state; the ladder shows the tree with the condition that blocks. |
@@ -84,9 +86,6 @@ building changes when the API does.
   child of a `not` is assumed to add `.not`, since the hub has no `not` yet.
   Fixture: `packages/hmi-core/test-data/interlock-detail.bus-coupler.json`.
 - **No shelving or suppression:** not in the API, so not in the HMI.
-- **Wished for:** an alarm subscription that sends the active list first and
-  then changes, which would replace `activeAlm` + `almSubscribe` and the
-  client-side rule.
 
 ## The demo plant
 

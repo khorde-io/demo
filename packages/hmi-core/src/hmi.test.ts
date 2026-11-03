@@ -32,6 +32,7 @@ describe("createHmi", () => {
     const { backend, hmi } = setup();
     backend.raiseAlarm({ name: "x", area: "vds.sub", severity: "high" });
     await hmi.start();
+    await tick();
     expect(hmi.registry?.agentOf("vds.sub.f1.cb::pos")).toBe(AGENT);
     expect(hmi.registry?.command("vds.sub.f1.cb", "pos.open")).toMatchObject({ agent: AGENT });
     expect([...(hmi.agents?.get().keys() ?? [])].sort()).toEqual([AGENT, "vds-windfarm"]);

@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAlarmStore, filterAlarms, loadAlarmHistory, mergeAlarm, untilClearedAndAcked, whileSet } from "./alarms.ts";
+import { createAlarmStore, filterAlarms, loadAlarmHistory } from "./alarms.ts";
+import type { ActiveAlarmChange, Sink } from "./backend.ts";
 import { createMockBackend } from "./mock/backend.ts";
 import type { Alarm } from "./model.ts";
 import { feederBay, tick } from "./test-fixtures.ts";
 
 const alarm = (over: Partial<Alarm>): Alarm => ({
+  key: "tr2_oil_temp/high",
   instanceId: "i1",
+  origin: "hub",
   name: "tr2_oil_temp",
   area: "vds.sub.tr2",
   condition: "high",
@@ -13,54 +16,114 @@ const alarm = (over: Partial<Alarm>): Alarm => ({
   severity: "medium",
   priority: 2,
   value: 78.4,
-  timestamp: new Date("2026-10-25T14:28:51Z"),
+  setAt: new Date("2026-10-25T14:28:51Z"),
+  stateAt: new Date("2026-10-25T14:28:51Z"),
   acked: false,
-  ackTimestamp: null,
-  actorId: null,
-  actorDisplay: null,
+  ackPending: false,
+  ackedAt: null,
+  ackedBy: null,
+  originOnline: true,
   ...over,
 });
 
-describe("mergeAlarm", () => {
-  it("lists newest first, the most urgent first when raised together", () => {
-    const t = new Date("2026-10-25T12:00:00Z");
-    let list = mergeAlarm([], alarm({ instanceId: "p3", priority: 3, timestamp: t }));
-    list = mergeAlarm(list, alarm({ instanceId: "p1", priority: 1, timestamp: t }));
-    list = mergeAlarm(list, alarm({ instanceId: "new", priority: 3, timestamp: new Date(t.getTime() + 1000) }));
-    expect(list.map((a) => a.instanceId)).toEqual(["new", "p1", "p3"]);
+/** A backend whose alarm stream the test drives by hand. */
+function scripted() {
+  const backend = createMockBackend(feederBay());
+  let sink: Sink<ActiveAlarmChange> | undefined;
+  vi.spyOn(backend, "subscribeActiveAlarms").mockImplementation((_areas, s) => {
+    sink = s;
+    return () => {};
   });
-
-  it("keeps a returned alarm until it is acknowledged", () => {
-    let list = mergeAlarm([], alarm({}));
-    list = mergeAlarm(list, alarm({ state: "Reset" }));
-    expect(list).toHaveLength(1);
-    expect(list[0]?.state).toBe("Reset");
-    list = mergeAlarm(list, alarm({ state: "Reset", acked: true }));
-    expect(list).toHaveLength(0);
-  });
-
-  it("keeps an acknowledged alarm while it is still active", () => {
-    const list = mergeAlarm([alarm({})], alarm({ acked: true }));
-    expect(list[0]?.acked).toBe(true);
-  });
-
-  it("does not lose an ack when a later update omits it", () => {
-    const list = mergeAlarm([alarm({ acked: true })], alarm({ value: 80 }));
-    expect(list[0]).toMatchObject({ acked: true, value: 80 });
-  });
-
-  it("removes an event once acknowledged", () => {
-    const list = mergeAlarm([alarm({ state: "Event" })], alarm({ state: "Event", acked: true }));
-    expect(list).toHaveLength(0);
-  });
-
-  it("sorts newest first", () => {
-    const list = mergeAlarm([alarm({ instanceId: "old", timestamp: new Date(1000) })], alarm({ instanceId: "new", timestamp: new Date(2000) }));
-    expect(list.map((a) => a.instanceId)).toEqual(["new", "old"]);
-  });
-});
+  const send = (...changes: ActiveAlarmChange[]) => {
+    for (const c of changes) sink?.next(c);
+  };
+  return { backend, send, error: (e: unknown) => sink?.error?.(e) };
+}
 
 describe("alarm store", () => {
+  it("publishes nothing until the hub says the list is complete", async () => {
+    const { backend, send } = scripted();
+    const store = createAlarmStore(backend);
+    const started = store.start();
+    send({ kind: "upsert", alarm: alarm({}) });
+    expect(store.get()).toMatchObject({ loaded: false, alarms: [] });
+    send({ kind: "synced" });
+    await started;
+    expect(store.get().loaded).toBe(true);
+    expect(store.get().alarms.map((a) => a.instanceId)).toEqual(["i1"]);
+  });
+
+  it("applies upserts and removes by instance", async () => {
+    const { backend, send } = scripted();
+    const store = createAlarmStore(backend);
+    void store.start();
+    send({ kind: "upsert", alarm: alarm({}) }, { kind: "synced" });
+    send({ kind: "upsert", alarm: alarm({ acked: true }) });
+    expect(store.get().alarms).toHaveLength(1);
+    expect(store.get().counts.unacked).toBe(0);
+    send({ kind: "remove", instanceId: "i1" });
+    expect(store.get().alarms).toEqual([]);
+  });
+
+  it("lists the newest change first, the most urgent first when raised together", () => {
+    const { backend, send } = scripted();
+    const store = createAlarmStore(backend);
+    void store.start();
+    const t = new Date("2026-10-25T12:00:00Z");
+    send(
+      { kind: "upsert", alarm: alarm({ instanceId: "p3", priority: 3, stateAt: t }) },
+      { kind: "upsert", alarm: alarm({ instanceId: "p1", priority: 1, stateAt: t }) },
+      { kind: "upsert", alarm: alarm({ instanceId: "new", priority: 3, stateAt: new Date(t.getTime() + 1000) }) },
+      { kind: "synced" },
+    );
+    expect(store.get().alarms.map((a) => a.instanceId)).toEqual(["new", "p1", "p3"]);
+  });
+
+  it("keeps the list when the hub repeats synced on its own", () => {
+    const { backend, send } = scripted();
+    const store = createAlarmStore(backend);
+    void store.start();
+    send({ kind: "upsert", alarm: alarm({}) }, { kind: "synced" }, { kind: "synced" });
+    expect(store.get().alarms).toHaveLength(1);
+  });
+
+  it("drops what left during an outage, and keeps the old list until it knows", async () => {
+    const backend = createMockBackend(feederBay());
+    const store = createAlarmStore(backend);
+    const stays = backend.raiseAlarm({ name: "stays", area: "vds.sub", severity: "low" });
+    const leaves = backend.raiseAlarm({ name: "leaves", area: "vds.sub", severity: "low" });
+    await store.start();
+    expect(store.get().alarms).toHaveLength(2);
+
+    backend.setConnection("offline");
+    backend.resetAlarm(leaves.instanceId);
+    await backend.ackAlarm(leaves.key, leaves.instanceId);
+    await tick();
+    expect(store.get().alarms).toHaveLength(2);
+
+    backend.setConnection("online");
+    await tick();
+    expect(store.get().alarms.map((a) => a.instanceId)).toEqual([stays.instanceId]);
+  });
+
+  it("says when the subscription fails, and start still resolves", async () => {
+    const { backend, error } = scripted();
+    const store = createAlarmStore(backend);
+    const started = store.start();
+    const failure = new Error("denied");
+    error(failure);
+    await started;
+    expect(store.get()).toMatchObject({ error: failure, loaded: false });
+  });
+
+  it("resolves a start that is stopped before the list is complete", async () => {
+    const { backend } = scripted();
+    const store = createAlarmStore(backend);
+    const started = store.start();
+    store.stop();
+    await expect(started).resolves.toBeUndefined();
+  });
+
   it("loads active alarms, follows changes and counts by priority", async () => {
     const backend = createMockBackend(feederBay());
     const existing = backend.raiseAlarm({ name: "f2_sf6", area: "vds.sub.f2", severity: "low" });
@@ -77,7 +140,7 @@ describe("alarm store", () => {
     expect(counts.byPriority[3]).toEqual({ total: 1, unacked: 1 });
   });
 
-  it("does not lose an alarm raised while the initial query runs", async () => {
+  it("does not lose an alarm raised while starting", async () => {
     const backend = createMockBackend(feederBay());
     const store = createAlarmStore(backend);
     const started = store.start();
@@ -87,7 +150,7 @@ describe("alarm store", () => {
     expect(store.get().alarms.map((a) => a.name)).toContain("late");
   });
 
-  it("acknowledges and drops returned alarms", async () => {
+  it("acknowledges by key and instance, and drops a returned alarm when the hub removes it", async () => {
     const backend = createMockBackend(feederBay());
     const store = createAlarmStore(backend);
     await store.start();
@@ -95,23 +158,42 @@ describe("alarm store", () => {
     backend.resetAlarm(a.instanceId);
     await tick();
     expect(store.get().alarms[0]?.state).toBe("Reset");
+    const spy = vi.spyOn(backend, "ackAlarm");
     await expect(store.ack(a.instanceId)).resolves.toBe(true);
+    expect(spy).toHaveBeenCalledWith(a.key, a.instanceId);
+    await tick();
     expect(store.get().alarms).toHaveLength(0);
   });
 
-  it("records the acknowledging user the mock is given, like the hub does from the token", async () => {
+  it("keeps an acknowledged alarm while it is still active", async () => {
     const backend = createMockBackend({ ...feederBay(), actor: () => ({ id: "u-42", display: "operator1" }) });
     const store = createAlarmStore(backend);
     await store.start();
     const a = backend.raiseAlarm({ name: "gearbox", area: "vds.wf.f1", severity: "low" });
     await tick();
     await store.ack(a.instanceId);
-    expect(store.get().alarms[0]).toMatchObject({ acked: true, actorId: "u-42", actorDisplay: "operator1" });
+    await tick();
+    expect(store.get().alarms[0]).toMatchObject({ acked: true, ackedBy: "operator1" });
     // Without an actor, the mock says so rather than inventing a name.
     const anonymous = createMockBackend(feederBay());
     const b = anonymous.raiseAlarm({ name: "gearbox", area: "vds.wf.f1", severity: "low" });
-    await anonymous.ackAlarm(b.instanceId);
-    expect((await anonymous.activeAlarms())[0]?.actorDisplay).toBe("Mock operator");
+    await anonymous.ackAlarm(b.key, b.instanceId);
+    expect(anonymous.activeAlarms()[0]?.ackedBy).toBe("Mock operator");
+  });
+
+  it("counts a queued or repeated ack as taken, and a vanished alarm as not", async () => {
+    const backend = createMockBackend(feederBay());
+    const store = createAlarmStore(backend);
+    await store.start();
+    const a = backend.raiseAlarm({ name: "gearbox", area: "vds.wf.f1", severity: "low" });
+    await tick();
+    const spy = vi.spyOn(backend, "ackAlarm");
+    spy.mockResolvedValueOnce("PENDING");
+    await expect(store.ack(a.instanceId)).resolves.toBe(true);
+    spy.mockResolvedValueOnce("ALREADY_ACKED");
+    await expect(store.ack(a.instanceId)).resolves.toBe(true);
+    spy.mockResolvedValueOnce("NOT_FOUND");
+    await expect(store.ack(a.instanceId)).resolves.toBe(false);
   });
 
   it("acknowledges several at once", async () => {
@@ -121,6 +203,7 @@ describe("alarm store", () => {
     const ids = ["a", "b"].map((n) => backend.raiseAlarm({ name: n, area: "vds.sub", severity: "low" }).instanceId);
     await tick();
     await expect(store.ackMany([...ids, "missing"])).resolves.toEqual(ids);
+    await tick();
     expect(store.get().counts.unacked).toBe(0);
   });
 
@@ -144,21 +227,6 @@ describe("alarm store", () => {
     await tick();
     expect(store.get().alarms.map((a) => a.name)).toEqual(["wf"]);
   });
-});
-
-describe("active-alarm rule", () => {
-  it("never lists a change that is no longer active, even if it is new to the list", () => {
-    expect(mergeAlarm([], alarm({ state: "Reset", acked: true }))).toEqual([]);
-    expect(mergeAlarm([], alarm({ state: "Event", acked: true }))).toEqual([]);
-  });
-
-  it("can list only alarms whose condition is present", () => {
-    let list = mergeAlarm([], alarm({}), whileSet);
-    expect(list).toHaveLength(1);
-    list = mergeAlarm(list, alarm({ state: "Reset" }), whileSet);
-    expect(list).toHaveLength(0);
-    expect(untilClearedAndAcked(alarm({ state: "Reset" }))).toBe(true);
-  });
 
   it("drops a returned alarm when another client acknowledges it", async () => {
     const backend = createMockBackend(feederBay());
@@ -168,18 +236,9 @@ describe("active-alarm rule", () => {
     backend.resetAlarm(a.instanceId);
     await tick();
     expect(store.get().alarms).toHaveLength(1);
-    // Acked elsewhere: the store only sees the changed alarm on the subscription.
-    await backend.ackAlarm(a.instanceId);
+    // Acked elsewhere: the store only sees it on the subscription.
+    await backend.ackAlarm(a.key, a.instanceId);
     await tick();
-    expect(store.get().alarms).toHaveLength(0);
-  });
-
-  it("applies the configured rule to the initial list too", async () => {
-    const backend = createMockBackend(feederBay());
-    const a = backend.raiseAlarm({ name: "gearbox", area: "vds.wf.f1", severity: "low" });
-    backend.resetAlarm(a.instanceId);
-    const store = createAlarmStore(backend, { isActive: whileSet });
-    await store.start();
     expect(store.get().alarms).toHaveLength(0);
   });
 });
@@ -192,19 +251,33 @@ describe("loadAlarmHistory", () => {
     t = 2000;
     backend.resetAlarm(a.instanceId);
     t = 3000;
-    await backend.ackAlarm(a.instanceId);
+    await backend.ackAlarm(a.key, a.instanceId);
     t = 4000;
     backend.raiseAlarm({ name: "oil", area: "vds.sub.tr2", severity: "medium" });
 
     const all = await loadAlarmHistory(backend, { from: new Date(0), to: new Date(5000) });
-    expect(all.map((x) => [x.name, x.state, x.acked])).toEqual([
-      ["oil", "Set", false],
-      ["gearbox", "Reset", true],
-      ["gearbox", "Reset", false],
-      ["gearbox", "Set", false],
+    expect(all.map((x) => [x.name, x.kind, x.acked])).toEqual([
+      ["oil", "SET", false],
+      ["gearbox", "ACK", true],
+      ["gearbox", "RESET", false],
+      ["gearbox", "SET", false],
     ]);
     const wf = await loadAlarmHistory(backend, { from: new Date(0), to: new Date(5000) }, { areas: ["vds.wf.>"] });
     expect(wf.every((x) => x.area === "vds.wf.f1")).toBe(true);
+  });
+
+  it("keeps a gap whatever the filter", async () => {
+    const backend = createMockBackend(feederBay());
+    const row = { timestamp: new Date(1000), origin: "site-1", name: "", area: "", condition: "", instanceId: "0", state: null, severity: null, priority: null, value: null, acked: false, ackedAt: null, ackedBy: null };
+    vi.spyOn(backend, "alarmJournal").mockResolvedValue({
+      items: [
+        { ...row, kind: "GAP" },
+        { ...row, kind: "SET", name: "other", area: "vds.sub", priority: 3 },
+      ],
+      next: null,
+    });
+    const got = await loadAlarmHistory(backend, { from: new Date(0), to: new Date(5000) }, { areas: ["vds.wf.>"], priorities: [1], text: "gearbox" });
+    expect(got.map((e) => e.kind)).toEqual(["GAP"]);
   });
 
   it("follows the pages, newest first, and keeps the newest rows at the cap", async () => {
@@ -214,7 +287,7 @@ describe("loadAlarmHistory", () => {
       t = i * 1000;
       backend.raiseAlarm({ name: `a${i}`, area: "vds.sub", severity: "low" });
     }
-    const spy = vi.spyOn(backend, "alarmHistory");
+    const spy = vi.spyOn(backend, "alarmJournal");
     const range = { from: new Date(0), to: new Date(t) };
     const all = await loadAlarmHistory(backend, range, {}, { pageSize: 3 });
     expect(spy.mock.calls.map(([q]) => [q.order, q.first, q.after])).toEqual([["desc", 3, undefined], ["desc", 3, "3"], ["desc", 3, "6"]]);
@@ -236,7 +309,7 @@ describe("filterAlarms", () => {
     expect(filterAlarms(list, { priorities: [1, 3] }).map((a) => a.instanceId)).toEqual(["1", "3"]);
     expect(filterAlarms(list, { unackedOnly: true }).map((a) => a.instanceId)).toEqual(["1", "3"]);
     expect(filterAlarms(list, { text: "SF6" }).map((a) => a.instanceId)).toEqual(["3"]);
-    expect(filterAlarms(list, { text: "converter fault", textOf: (a) => (a.instanceId === "1" ? "Converter fault trip" : "") }))
+    expect(filterAlarms(list, { text: "converter fault", textOf: (a) => (a.name === "wtg14_converter" ? "Converter fault trip" : "") }))
       .toHaveLength(1);
   });
 });

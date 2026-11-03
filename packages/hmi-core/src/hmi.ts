@@ -97,8 +97,10 @@ export function createHmi(options: HmiOptions): Hmi {
       const agentIds = config.agents ?? [...new Set([...registry.measurements.values()].map((m) => m.agent))];
       hmi.agents = createHeartbeatMonitor(backend, "agent", agentIds);
       hmi.sites = createHeartbeatMonitor(backend, "site", config.sites ?? []);
-      await Promise.all([hmi.agents.start(), hmi.sites.start(), hmi.alarms.start()]);
+      await Promise.all([hmi.agents.start(), hmi.sites.start()]);
       cleanups.push(linkAgentStaleness(points, hmi.agents, registry));
+      // Not awaited: it finishes on the socket, and the screens mustn't wait for a hub that can't be reached.
+      void hmi.alarms.start();
     },
 
     stop() {

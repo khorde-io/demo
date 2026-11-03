@@ -41,6 +41,8 @@ export function AlarmsScreen({ onNavigate }: { onNavigate: (page: PageId, focus?
               <h2>{i18n.alarmText(selected)}</h2>
             </div>
             <dl className="detail-facts">
+              <dt>Origin</dt>
+              <dd className="mono">{selected.origin}</dd>
               <dt>Area</dt>
               <dd className="mono">{selected.area}</dd>
               <dt>Alarm name</dt>
@@ -48,14 +50,15 @@ export function AlarmsScreen({ onNavigate }: { onNavigate: (page: PageId, focus?
               <dt>Condition</dt>
               <dd className="mono">{selected.condition}</dd>
               <dt>Raised at</dt>
-              <dd>{i18n.formatDateTime(selected.timestamp, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" })}</dd>
+              <dd>{i18n.formatDateTime(selected.setAt, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" })}</dd>
               <dt>Severity</dt>
               <dd>
                 {i18n.t(`alarm.severity.${selected.severity}`)} → priority {selected.priority}
               </dd>
               <dt>State</dt>
               <dd>
-                {i18n.t(`alarm.state.${selected.state}`)} · {selected.acked ? i18n.t("alarm.acked") : i18n.t("alarm.unacked")}
+                {i18n.t(`alarm.state.${selected.state}`)}
+                {!selected.originOnline && ` (${i18n.t("alarm.lastKnown")})`} · {selected.ackPending ? i18n.t("alarm.ackPending") : selected.acked ? i18n.t("alarm.acked") : i18n.t("alarm.unacked")}
               </dd>
             </dl>
             <p className="note">The text comes from the project dictionary, keyed by alarm name and condition. The API sends only the identifiers.</p>

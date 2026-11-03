@@ -55,7 +55,7 @@ describe("mock site", () => {
       site.scenario("tr1-trip");
       // Discrete changes reach the backend after the field's event delay.
       await new Promise((r) => setTimeout(r, 700));
-      const active = await site.backend.activeAlarms();
+      const active = site.backend.activeAlarms();
       expect(active.map((a) => a.name)).toEqual(expect.arrayContaining(["sub_tr1_buchholz", "sub_hv_tr1_cb_trip", "sub_mv_a_tr1_cb_trip"]));
       expect(site.backend.value("vds.sub.hv.tr1.cb::pos")?.value).toBe(0);
       // Reports carry their own times: the trip changes are not all stamped alike.

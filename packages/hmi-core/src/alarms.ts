@@ -1,18 +1,15 @@
 /**
- * The active alarm list: seeded with `activeAlm`, kept live with
- * `almSubscribe`.
- *
- * `almSubscribe` streams every alarm change (new, returned, event, ack), not
- * the list itself, so this store applies the active-alarm rule: by default an
- * alarm stays listed until it has returned to normal (or was a one-off event)
- * AND has been acknowledged (ISA-18.2). Returned or acknowledged history is
- * read separately with `loadAlarmHistory`.
+ * The active alarm list, kept by following `activeAlarmChanges`: every alarm
+ * active now, `SYNCED`, then every change. The hub decides what is active
+ * (`Set`, or returned to normal and not acknowledged yet), so an alarm is listed
+ * exactly as long as the hub says. Past changes are read separately with
+ * `loadAlarmHistory`.
  */
 
 import type { ScadaBackend } from "./backend.ts";
 import { collectPages } from "./pages.ts";
 import type { Permissions } from "./commands.ts";
-import type { Alarm, AlarmPriority } from "./model.ts";
+import type { Alarm, AlarmJournalEntry, AlarmPriority } from "./model.ts";
 import { matchAny } from "./paths.ts";
 import { writable, type Readable, type Unsubscribe } from "./store.ts";
 
@@ -36,24 +33,20 @@ export interface AlarmSnapshot {
 }
 
 export interface AlarmStore extends Readable<AlarmSnapshot> {
+  /** Resolves once the list is complete (or the subscription failed). */
   start(): Promise<void>;
   stop(): void;
+  /** Resolves to whether the hub took the ack; the list changes when the hub reports it. */
   ack(instanceId: string): Promise<boolean>;
-  /** Acknowledges several alarms; resolves to the ids that were acknowledged. */
+  /** Acknowledges several alarms; resolves to the ids the hub took. */
   ackMany(instanceIds: readonly string[]): Promise<string[]>;
 }
-
-/** Decides whether an alarm belongs in the active list. */
-export type ActiveRule = (alarm: Alarm) => boolean;
 
 export interface AlarmStoreOptions {
   /** Alarm areas to follow (wildcards allowed); empty means every area. */
   areas?: readonly string[];
-  /** Defaults to `untilClearedAndAcked`. */
-  isActive?: ActiveRule;
   /** When given, `ack` refuses without asking the backend if the user may not acknowledge. */
   permissions?: Permissions;
-  now?: () => Date;
 }
 
 export function countAlarms(alarms: readonly Alarm[]): AlarmCounts {
@@ -73,27 +66,9 @@ export function countAlarms(alarms: readonly Alarm[]): AlarmCounts {
   return { total: alarms.length, unacked, byPriority };
 }
 
-/** ISA-18.2: listed while active, and after return to normal until acknowledged. */
-export const untilClearedAndAcked: ActiveRule = (alarm) => alarm.state === "Set" || !alarm.acked;
-
-/** Listed only while the condition is present, whatever the ack state. */
-export const whileSet: ActiveRule = (alarm) => alarm.state === "Set";
-
-/** Applies one alarm update to a list, keyed by `instanceId`. */
-export function mergeAlarm(list: readonly Alarm[], incoming: Alarm, isActive: ActiveRule = untilClearedAndAcked): Alarm[] {
-  const existing = list.find((a) => a.instanceId === incoming.instanceId);
-  // An update that only carries the ack must not lose an earlier ack either.
-  const merged: Alarm = existing && existing.acked && !incoming.acked
-    ? { ...incoming, acked: true, ackTimestamp: existing.ackTimestamp, actorId: existing.actorId, actorDisplay: existing.actorDisplay }
-    : incoming;
-  const rest = list.filter((a) => a.instanceId !== incoming.instanceId);
-  if (!isActive(merged)) return rest;
-  return sortNewestFirst([...rest, merged]);
-}
-
-/** Newest first; alarms raised together put the most urgent first. */
+/** Newest change first; alarms raised together put the most urgent first. */
 function sortNewestFirst(list: Alarm[]): Alarm[] {
-  return list.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime() || a.priority - b.priority);
+  return list.sort((a, b) => b.stateAt.getTime() - a.stateAt.getTime() || a.priority - b.priority);
 }
 
 export interface AlarmFilter {
@@ -103,114 +78,123 @@ export interface AlarmFilter {
   unackedOnly?: boolean;
   /** Matched against area, name and condition, and any extra text (e.g. translated). */
   text?: string;
-  textOf?(alarm: Alarm): string;
+  textOf?(alarm: Pick<Alarm, "area" | "name" | "condition">): string;
+}
+
+/** What a filter looks at, which active alarms and journal rows both have. */
+type Filterable = Pick<Alarm, "area" | "name" | "condition" | "acked"> & { priority: AlarmPriority | null };
+
+function matchesFilter(a: Filterable, f: AlarmFilter): boolean {
+  if (f.areas?.length && !matchAny(f.areas, a.area)) return false;
+  if (f.priorities?.length && (a.priority === null || !f.priorities.includes(a.priority))) return false;
+  if (f.unackedOnly && a.acked) return false;
+  const needle = f.text?.trim().toLowerCase();
+  if (!needle) return true;
+  return `${a.area} ${a.name} ${a.condition} ${f.textOf?.(a) ?? ""}`.toLowerCase().includes(needle);
 }
 
 export function filterAlarms(alarms: readonly Alarm[], f: AlarmFilter): Alarm[] {
-  const needle = f.text?.trim().toLowerCase();
-  return alarms.filter((a) => {
-    if (f.areas?.length && !matchAny(f.areas, a.area)) return false;
-    if (f.priorities?.length && !f.priorities.includes(a.priority)) return false;
-    if (f.unackedOnly && a.acked) return false;
-    if (needle) {
-      const hay = `${a.area} ${a.name} ${a.condition} ${f.textOf?.(a) ?? ""}`.toLowerCase();
-      if (!hay.includes(needle)) return false;
-    }
-    return true;
-  });
+  return alarms.filter((a) => matchesFilter(a, f));
 }
 
 const EMPTY: AlarmSnapshot = { alarms: [], counts: countAlarms([]), loaded: false, error: null };
 
 export function createAlarmStore(backend: ScadaBackend, options: AlarmStoreOptions = {}): AlarmStore {
   const areas = options.areas ?? [];
-  const isActive = options.isActive ?? untilClearedAndAcked;
-  const now = options.now ?? (() => new Date());
   const state = writable<AlarmSnapshot>(EMPTY);
   let stopSubscription: Unsubscribe | null = null;
-  let generation = 0;
+  let settleStart: (() => void) | null = null;
 
-  const setAlarms = (alarms: readonly Alarm[], patch: Partial<AlarmSnapshot> = {}) =>
-    state.set({ ...state.get(), ...patch, alarms, counts: countAlarms(alarms) });
+  const publish = (alarms: Map<string, Alarm>) => {
+    const list = sortNewestFirst([...alarms.values()]);
+    state.set({ alarms: list, counts: countAlarms(list), loaded: true, error: null });
+  };
 
-  const apply = (incoming: Alarm) => setAlarms(mergeAlarm(state.get().alarms, incoming, isActive));
-
-  const applyAck = (instanceId: string) => {
-    const a = state.get().alarms.find((x) => x.instanceId === instanceId);
-    if (a) apply({ ...a, acked: true, ackTimestamp: now() });
+  const send = async (instanceId: string) => {
+    const alarm = state.get().alarms.find((a) => a.instanceId === instanceId);
+    if (!alarm) return false;
+    return (await backend.ackAlarm(alarm.key, alarm.instanceId)) !== "NOT_FOUND";
   };
 
   return {
     get: state.get,
     subscribe: state.subscribe,
 
-    async start() {
-      if (stopSubscription) return;
-      const gen = ++generation;
-      // Subscribe first and buffer, so nothing that happens during the initial
-      // query is lost; then apply the buffer on top of the snapshot.
-      let buffer: Alarm[] | null = [];
-      stopSubscription = backend.subscribeAlarms(areas, {
-        next: (a) => (buffer ? buffer.push(a) : apply(a)),
-        error: (error) => state.set({ ...state.get(), error }),
+    start() {
+      if (stopSubscription) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        settleStart = resolve;
+        const alarms = new Map<string, Alarm>();
+        // While syncing, this holds what the hub has listed. A new subscription
+        // only lists what is active, so whatever left during an outage goes at
+        // `synced`. The list on screen doesn't change until then.
+        let seen: Set<string> | null = new Set();
+        const stopConnection = backend.connection.subscribe(() => {
+          if (backend.connection.get() !== "online") seen ??= new Set();
+        });
+        const stopChanges = backend.subscribeActiveAlarms(areas, {
+          next(change) {
+            if (change.kind === "upsert") {
+              alarms.set(change.alarm.instanceId, change.alarm);
+              seen?.add(change.alarm.instanceId);
+            } else if (change.kind === "remove") {
+              alarms.delete(change.instanceId);
+              seen?.delete(change.instanceId);
+            } else {
+              // The hub may also repeat `synced` on its own; only a sync in progress prunes.
+              if (seen) for (const id of alarms.keys()) if (!seen.has(id)) alarms.delete(id);
+              seen = null;
+              resolve();
+            }
+            if (!seen) publish(alarms);
+          },
+          error(error) {
+            state.set({ ...state.get(), error });
+            resolve();
+          },
+        });
+        stopSubscription = () => {
+          stopConnection();
+          stopChanges();
+        };
       });
-      try {
-        const initial = await backend.activeAlarms(areas);
-        if (gen !== generation) return;
-        let list = sortNewestFirst(initial.filter(isActive));
-        for (const a of buffer) list = mergeAlarm(list, a, isActive);
-        buffer = null;
-        setAlarms(list, { loaded: true, error: null });
-      } catch (error) {
-        if (gen !== generation) return;
-        buffer = null;
-        state.set({ ...state.get(), error });
-      }
     },
 
     stop() {
-      generation++;
       stopSubscription?.();
       stopSubscription = null;
+      settleStart?.();
     },
 
     async ack(instanceId) {
       if (options.permissions && !options.permissions.can("ackAlarm")) return false;
-      const ok = await backend.ackAlarm(instanceId);
-      if (ok) applyAck(instanceId);
-      return ok;
+      return send(instanceId);
     },
 
     async ackMany(ids) {
       if (options.permissions && !options.permissions.can("ackAlarm")) return [];
-      const results = await Promise.allSettled(ids.map((id) => backend.ackAlarm(id)));
-      const done = ids.filter((_, i) => {
+      const results = await Promise.allSettled(ids.map(send));
+      return ids.filter((_, i) => {
         const r = results[i];
         return r?.status === "fulfilled" && r.value;
       });
-      for (const id of done) applyAck(id);
-      return done;
     },
   };
 }
 
 /**
- * Alarm history for the history/event view: every recorded change (raised,
+ * The alarm journal for the history/event view: one row per change (raised,
  * returned, event, acknowledged) in a time range, newest first, optionally
  * filtered. One-shot query, page by page up to `maxRows` (the oldest are
- * dropped); the active list is the live view.
+ * dropped); the active list is the live view. A `GAP` row always stays, whatever
+ * the filter: it belongs to no alarm and says the record is incomplete.
  */
 export async function loadAlarmHistory(
   backend: ScadaBackend,
   range: { from: Date; to: Date },
   filter: AlarmFilter = {},
   { pageSize = 5_000, maxRows = 50_000 }: { pageSize?: number; maxRows?: number } = {},
-): Promise<Alarm[]> {
-  const all = await collectPages((page) => backend.alarmHistory({ ...range, order: "desc", ...page }), { pageSize, maxRows });
-  // An ack is a change of its own: order it by when it happened.
-  const changedAt = (a: Alarm) => Math.max(a.timestamp.getTime(), a.ackTimestamp?.getTime() ?? 0);
-  return filterAlarms(
-    [...all].sort((a, b) => changedAt(b) - changedAt(a)),
-    filter,
-  );
+): Promise<AlarmJournalEntry[]> {
+  const all = await collectPages((page) => backend.alarmJournal({ ...range, order: "desc", ...page }), { pageSize, maxRows });
+  return all.filter((e) => e.kind === "GAP" || matchesFilter(e, filter));
 }

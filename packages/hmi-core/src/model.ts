@@ -60,8 +60,13 @@ export type AlarmPriority = 1 | 2 | 3;
 
 export const PRIORITY_BY_SEVERITY: Record<AlarmSeverity, AlarmPriority> = { high: 1, medium: 2, low: 3 };
 
+/** An alarm instance in the active summary, as the hub keeps it. */
 export interface Alarm {
+  /** Identifies the subcondition; acknowledging needs it along with `instanceId`. */
+  key: string;
   instanceId: string;
+  /** The deployment that owns the alarm: a site, or this hub. */
+  origin: string;
   name: string;
   area: string;
   condition: string;
@@ -69,11 +74,40 @@ export interface Alarm {
   severity: AlarmSeverity;
   priority: AlarmPriority;
   value: number;
-  timestamp: Date;
+  /** When this occurrence started. */
+  setAt: Date;
+  /** When the state last changed. */
+  stateAt: Date;
   acked: boolean;
-  ackTimestamp: Date | null;
-  actorId: string | null;
-  actorDisplay: string | null;
+  /** Acknowledged on the hub and on its way to an owner site that is out of reach. */
+  ackPending: boolean;
+  ackedAt: Date | null;
+  ackedBy: string | null;
+  /** False when the owner is out of reach: this is its last known state. */
+  originOnline: boolean;
+}
+
+export type AckStatus = "ACKED" | "ALREADY_ACKED" | "PENDING" | "NOT_FOUND";
+
+/** `GAP` says events were lost during an outage; its alarm fields are empty. */
+export type AlarmJournalKind = "SET" | "RESET" | "EVENT" | "ACK" | "GAP";
+
+/** One row of the alarm journal: one change of an alarm, as it was at that moment. */
+export interface AlarmJournalEntry {
+  timestamp: Date;
+  kind: AlarmJournalKind;
+  origin: string;
+  name: string;
+  area: string;
+  condition: string;
+  instanceId: string;
+  state: AlarmState | null;
+  severity: AlarmSeverity | null;
+  priority: AlarmPriority | null;
+  value: number | null;
+  acked: boolean;
+  ackedAt: Date | null;
+  ackedBy: string | null;
 }
 
 export interface CommandKey {

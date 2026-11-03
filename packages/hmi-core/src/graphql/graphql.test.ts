@@ -3,11 +3,29 @@ import { buildSchema, parse, validate } from "graphql";
 import { describe, expect, it, vi } from "vitest";
 import { createGraphQLBackend } from "./backend.ts";
 import * as documents from "./documents.ts";
-import { toAlarm, toMeasurement, toQuality } from "./map.ts";
+import { toAlarm, toAlarmChange, toJournalEntry, toMeasurement, toQuality, type RawAlarm } from "./map.ts";
 import { createTransport, GraphQLRequestError, type Transport } from "./transport.ts";
 import { writable } from "../store.ts";
 
 const schema = buildSchema(readFileSync(new URL("../../../../schema.graphql", import.meta.url), "utf8"));
+
+const RAW_ALARM: RawAlarm = {
+  key: "tr2_oil_temp/high",
+  origin: "hub",
+  name: "tr2_oil_temp",
+  area: "vds.sub.tr2",
+  condition: "high",
+  instanceId: "b51e09c4-0000-4000-8000-000000003d7a",
+  state: "Set",
+  severity: "medium",
+  value: 78.4,
+  setAt: "2026-10-25T14:28:51.090Z",
+  stateAt: "2026-10-25T14:30:00.000Z",
+  ack: "NOT_ACK",
+  ackedAt: null,
+  ackedBy: null,
+  originOnline: true,
+};
 
 describe("documents", () => {
   it.each(Object.entries(documents))("%s is valid against schema.graphql", (_name, source) => {
@@ -37,21 +55,27 @@ describe("mapping", () => {
   });
 
   it("maps an alarm and its priority", () => {
-    const a = toAlarm({
-      name: "tr2_oil_temp",
-      area: "vds.sub.tr2",
-      condition: "high",
-      instanceId: "b51e09c4-0000-4000-8000-000000003d7a",
-      timestamp: "2026-10-25T14:28:51.090Z",
-      state: "Set",
-      value: 78.4,
-      severity: "medium",
-      ack: "NotAck",
-      ackTimestamp: null,
-      actorId: null,
-      actorDisplay: null,
-    });
-    expect(a).toMatchObject({ priority: 2, acked: false, ackTimestamp: null });
+    const a = toAlarm(RAW_ALARM);
+    expect(a).toMatchObject({ priority: 2, acked: false, ackPending: false, ackedAt: null, key: "tr2_oil_temp/high", originOnline: true });
+    expect(a.setAt.toISOString()).toBe("2026-10-25T14:28:51.090Z");
+    expect(a.stateAt.toISOString()).toBe("2026-10-25T14:30:00.000Z");
+  });
+
+  it("counts a pending ack as acknowledged, and says it is pending", () => {
+    expect(toAlarm({ ...RAW_ALARM, ack: "ACK_PENDING" })).toMatchObject({ acked: true, ackPending: true });
+    expect(toAlarm({ ...RAW_ALARM, ack: "ACK" })).toMatchObject({ acked: true, ackPending: false });
+  });
+
+  it("maps the changes of the active summary", () => {
+    expect(toAlarmChange({ kind: "UPSERT", instanceId: RAW_ALARM.instanceId, alarm: RAW_ALARM })).toMatchObject({ kind: "upsert", alarm: { name: "tr2_oil_temp" } });
+    expect(toAlarmChange({ kind: "REMOVE", instanceId: "i1", alarm: null })).toEqual({ kind: "remove", instanceId: "i1" });
+    expect(toAlarmChange({ kind: "SYNCED", instanceId: null, alarm: null })).toEqual({ kind: "synced" });
+    expect(toAlarmChange({ kind: "UPSERT", instanceId: "i1", alarm: null })).toBeNull();
+  });
+
+  it("maps a journal gap, which has no alarm", () => {
+    const e = toJournalEntry({ timestamp: "2026-10-25T01:00:00Z", kind: "GAP", origin: "site-1", name: "", area: "", condition: "", instanceId: "00000000-0000-0000-0000-000000000000", state: null, value: null, severity: null, ack: "NOT_ACK", ackedAt: null, ackedBy: null });
+    expect(e).toMatchObject({ kind: "GAP", priority: null, value: null, acked: false });
   });
 });
 
@@ -140,21 +164,29 @@ describe("GraphQL backend", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("pages the alarm history like the measurement history", async () => {
-    const alarm = { name: "a", area: "vds.sub", condition: "_", instanceId: "i1", timestamp: "2026-10-25T01:00:00Z", state: "Set", value: 1, severity: "low", ack: "NotAck", ackTimestamp: null, actorId: null, actorDisplay: null };
-    const { t, calls } = fakeTransport({ alm: { pageInfo: { hasNextPage: false, endCursor: "c9" }, nodes: [alarm] } });
+  it("pages the alarm journal like the measurement history", async () => {
+    const row = { timestamp: "2026-10-25T01:00:00Z", kind: "SET", origin: "hub", name: "a", area: "vds.sub", condition: "_", instanceId: "i1", state: "Set", value: 1, severity: "low", ack: "NOT_ACK", ackedAt: null, ackedBy: null };
+    const { t, calls } = fakeTransport({ alarmJournal: { pageInfo: { hasNextPage: false, endCursor: "c9" }, nodes: [row] } });
     const b = createGraphQLBackend(t);
     const from = new Date("2026-10-25T00:00:00Z");
     const to = new Date("2026-10-25T06:00:00Z");
-    const got = await b.alarmHistory({ from, to, order: "desc", first: 500, after: "c8" });
-    expect(calls[0]?.query).toBe(documents.ALARM_HISTORY);
+    const got = await b.alarmJournal({ from, to, order: "desc", first: 500, after: "c8" });
+    expect(calls[0]?.query).toBe(documents.ALARM_JOURNAL);
     expect(calls[0]?.variables).toEqual({
       filter: { timestamp: { from: from.toISOString(), to: to.toISOString() } },
       order: "DESC",
       first: 500,
       after: "c8",
     });
-    expect(got.items.map((a) => a.instanceId)).toEqual(["i1"]);
+    expect(got.items.map((e) => [e.instanceId, e.kind, e.priority])).toEqual([["i1", "SET", 3]]);
     expect(got.next).toBeNull();
+  });
+
+  it("acknowledges by key and instance, and returns the status", async () => {
+    const { t, calls } = fakeTransport({ ackAlarm: { status: "PENDING" } });
+    const b = createGraphQLBackend(t);
+    await expect(b.ackAlarm("k1", "i1")).resolves.toBe("PENDING");
+    expect(calls[0]?.query).toBe(documents.ACK_ALARM);
+    expect(calls[0]?.variables).toEqual({ key: "k1", instanceId: "i1" });
   });
 });

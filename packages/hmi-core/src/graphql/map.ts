@@ -1,9 +1,12 @@
 /** Converts raw GraphQL payloads into HMI model types. */
 
+import type { ActiveAlarmChange } from "../backend.ts";
 import {
   PRIORITY_BY_SEVERITY,
   pointId,
   type Alarm,
+  type AlarmJournalEntry,
+  type AlarmJournalKind,
   type AlarmSeverity,
   type AlarmState,
   type Connectivity,
@@ -25,19 +28,46 @@ export interface RawMeasurement {
   quality: string;
 }
 
+type RawAckStatus = "NOT_ACK" | "ACK" | "ACK_PENDING";
+
 export interface RawAlarm {
+  key: string;
+  origin: string;
   name: string;
   area: string;
   condition: string;
   instanceId: string;
-  timestamp: string;
   state: AlarmState;
-  value: number;
   severity: AlarmSeverity;
-  ack: "Ack" | "NotAck";
-  ackTimestamp: string | null;
-  actorId: string | null;
-  actorDisplay: string | null;
+  value: number;
+  setAt: string;
+  stateAt: string;
+  ack: RawAckStatus;
+  ackedAt: string | null;
+  ackedBy: string | null;
+  originOnline: boolean;
+}
+
+export interface RawAlarmChange {
+  kind: "UPSERT" | "REMOVE" | "SYNCED";
+  instanceId: string | null;
+  alarm: RawAlarm | null;
+}
+
+export interface RawJournalEntry {
+  timestamp: string;
+  kind: AlarmJournalKind;
+  origin: string;
+  name: string;
+  area: string;
+  condition: string;
+  instanceId: string;
+  state: AlarmState | null;
+  value: number | null;
+  severity: AlarmSeverity | null;
+  ack: RawAckStatus;
+  ackedAt: string | null;
+  ackedBy: string | null;
 }
 
 export interface RawRequestUpdate {
@@ -88,7 +118,9 @@ export function toMeasurement(raw: RawMeasurement): Measurement {
 
 export function toAlarm(raw: RawAlarm): Alarm {
   return {
+    key: raw.key,
     instanceId: raw.instanceId,
+    origin: raw.origin,
     name: raw.name,
     area: raw.area,
     condition: raw.condition,
@@ -96,11 +128,40 @@ export function toAlarm(raw: RawAlarm): Alarm {
     severity: raw.severity,
     priority: PRIORITY_BY_SEVERITY[raw.severity] ?? 3,
     value: raw.value,
+    setAt: toDate(raw.setAt) ?? new Date(0),
+    stateAt: toDate(raw.stateAt) ?? new Date(0),
+    // A pending ack is an operator's ack: it just hasn't reached the owner site yet.
+    acked: raw.ack !== "NOT_ACK",
+    ackPending: raw.ack === "ACK_PENDING",
+    ackedAt: toDate(raw.ackedAt),
+    ackedBy: raw.ackedBy,
+    originOnline: raw.originOnline,
+  };
+}
+
+/** Null for a change that lacks what its kind promises. */
+export function toAlarmChange(raw: RawAlarmChange): ActiveAlarmChange | null {
+  if (raw.kind === "SYNCED") return { kind: "synced" };
+  if (raw.kind === "UPSERT") return raw.alarm ? { kind: "upsert", alarm: toAlarm(raw.alarm) } : null;
+  return raw.instanceId ? { kind: "remove", instanceId: raw.instanceId } : null;
+}
+
+export function toJournalEntry(raw: RawJournalEntry): AlarmJournalEntry {
+  return {
     timestamp: toDate(raw.timestamp) ?? new Date(0),
-    acked: raw.ack === "Ack",
-    ackTimestamp: toDate(raw.ackTimestamp),
-    actorId: raw.actorId,
-    actorDisplay: raw.actorDisplay,
+    kind: raw.kind,
+    origin: raw.origin,
+    name: raw.name,
+    area: raw.area,
+    condition: raw.condition,
+    instanceId: raw.instanceId,
+    state: raw.state,
+    severity: raw.severity,
+    priority: raw.severity ? (PRIORITY_BY_SEVERITY[raw.severity] ?? 3) : null,
+    value: raw.value,
+    acked: raw.ack !== "NOT_ACK",
+    ackedAt: toDate(raw.ackedAt),
+    ackedBy: raw.ackedBy,
   };
 }
 

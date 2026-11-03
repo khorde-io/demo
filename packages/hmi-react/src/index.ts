@@ -27,7 +27,7 @@ export { describeCondition, currentValueText, OP_SYMBOL, type ConditionText } fr
 
 // alarms
 export { AlarmList, type AlarmListProps, type AreaFilter } from "./alarms/AlarmList.tsx";
-export { AlarmHistoryList, alarmChanges, changesToCsv, type AlarmChange, type AlarmHistoryListProps } from "./alarms/AlarmHistoryList.tsx";
+export { AlarmHistoryList, journalToCsv, type AlarmHistoryListProps } from "./alarms/AlarmHistoryList.tsx";
 
 // faceplate and commands
 export { Faceplate, type FaceplateProps, type FaceplateTab } from "./faceplate/Faceplate.tsx";

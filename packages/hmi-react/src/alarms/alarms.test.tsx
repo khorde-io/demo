@@ -1,14 +1,16 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
-import type { Alarm } from "@khorde/hmi-core";
+import type { Alarm, AlarmJournalEntry } from "@khorde/hmi-core";
 import { mount } from "../test-dom.tsx";
 import { count, render, testI18n } from "../test-render.tsx";
-import { alarmChanges, AlarmHistoryList, changesToCsv } from "./AlarmHistoryList.tsx";
+import { AlarmHistoryList, journalToCsv } from "./AlarmHistoryList.tsx";
 import { AlarmList } from "./AlarmList.tsx";
 
 const t0 = new Date("2026-10-25T17:30:00Z").getTime();
 const alarm = (id: string, over: Partial<Alarm> = {}): Alarm => ({
+  key: `${id}/key`,
   instanceId: id,
+  origin: "hub",
   name: "wf_f3_t14_state",
   area: "vds.wf.f3",
   condition: "fault",
@@ -16,17 +18,19 @@ const alarm = (id: string, over: Partial<Alarm> = {}): Alarm => ({
   severity: "high",
   priority: 1,
   value: 3,
-  timestamp: new Date(t0),
+  setAt: new Date(t0),
+  stateAt: new Date(t0),
   acked: false,
-  ackTimestamp: null,
-  actorId: null,
-  actorDisplay: null,
+  ackPending: false,
+  ackedAt: null,
+  ackedBy: null,
+  originOnline: true,
   ...over,
 });
 
 const LIST = [
   alarm("a"),
-  alarm("b", { name: "sub_tr2_oil_temp", area: "vds.sub.tr2", condition: "high", priority: 2, severity: "medium", value: 78.4, acked: true, ackTimestamp: new Date(t0 + 60e3), actorDisplay: "operator1" }),
+  alarm("b", { name: "sub_tr2_oil_temp", area: "vds.sub.tr2", condition: "high", priority: 2, severity: "medium", value: 78.4, acked: true, ackedAt: new Date(t0 + 60e3), ackedBy: "operator1" }),
   alarm("c", { name: "sub_mv_a_f2_cb_sf6_low", area: "vds.sub.mv.a.f2", condition: "_", priority: 3, severity: "low", value: 1, state: "Reset" }),
 ];
 const AREAS = [
@@ -80,33 +84,68 @@ describe("alarm list", () => {
     m.unmount();
   });
 
+  it("says when an ack is on its way and when a state is only the last known", () => {
+    const html = render(<AlarmList alarms={[alarm("p", { acked: true, ackPending: true, ackedBy: "operator1", originOnline: false })]} canAck />);
+    expect(html).toContain("operator1 · sending to site");
+    expect(html).toContain("Active · Last known");
+    expect(html).not.toContain(">Ack<");
+  });
+
   it("says when nothing is active", () => {
     expect(render(<AlarmList alarms={[]} />)).toContain("No active alarms");
+  });
+
+  it("doesn't say nothing is active before it knows", () => {
+    const html = render(<AlarmList />);
+    expect(html).toContain("Reading the active alarms");
+    expect(html).not.toContain("No active alarms");
   });
 });
 
 describe("alarm history", () => {
-  it("splits an acknowledged alarm into two changes, newest first", () => {
-    const changes = alarmChanges(LIST);
-    expect(changes.map((c) => `${c.alarm.instanceId}:${c.kind}`)).toEqual(["b:ack", "a:Set", "b:Set", "c:Reset"]);
+  const entry = (kind: AlarmJournalEntry["kind"], over: Partial<AlarmJournalEntry> = {}): AlarmJournalEntry => ({
+    timestamp: new Date(t0),
+    kind,
+    origin: "hub",
+    name: "wf_f3_t14_state",
+    area: "vds.wf.f3",
+    condition: "fault",
+    instanceId: "a",
+    state: "Set",
+    severity: "high",
+    priority: 1,
+    value: 3,
+    acked: false,
+    ackedAt: null,
+    ackedBy: null,
+    ...over,
   });
-
-  it("lists a state change once when the log also holds its acked copy", () => {
-    const set = alarm("d");
-    const acked = { ...set, acked: true, ackTimestamp: new Date(t0 + 5000) };
-    expect(alarmChanges([set, acked]).map((c) => c.kind)).toEqual(["ack", "Set"]);
-  });
+  const gap = entry("GAP", { name: "", area: "", condition: "", state: null, severity: null, priority: null, value: null, origin: "site-1" });
+  const JOURNAL = [entry("ACK", { acked: true, ackedBy: "operator1", timestamp: new Date(t0 + 5000) }), gap, entry("SET")];
 
   it("exports CSV with quoting", () => {
-    const csv = changesToCsv(testI18n, alarmChanges([alarm("x", { area: 'a,"b"' })]));
+    const csv = journalToCsv(testI18n, [entry("SET", { area: 'a,"b"' })]);
     expect(csv.split("\n")[0]).toBe("time,priority,area,alarm,name,condition,value,change,by");
     expect(csv).toContain('"a,""b"""');
   });
 
-  it("shows the changes it is given", () => {
-    const html = render(<AlarmHistoryList from={new Date(t0 - 3600e3)} to={new Date(t0 + 3600e3)} alarms={LIST} />);
-    expect(html).toContain("4 changes");
+  it("exports who acknowledged, and a gap with its alarm fields empty", () => {
+    const [, ack, lost] = journalToCsv(testI18n, JOURNAL).split("\n");
+    expect(ack).toMatch(/,ACK,operator1$/);
+    expect(lost).toMatch(/Z,,,,,,,GAP,$/);
+  });
+
+  it("shows one row per journal entry", () => {
+    const html = render(<AlarmHistoryList from={new Date(t0 - 3600e3)} to={new Date(t0 + 3600e3)} entries={JOURNAL} />);
+    expect(html).toContain("3 changes");
     expect(html).toContain("Acknowledged");
+    expect(html).toContain("operator1");
     expect(html).toContain("Raised");
+  });
+
+  it("says when changes were lost", () => {
+    const html = render(<AlarmHistoryList from={new Date(t0 - 3600e3)} to={new Date(t0 + 3600e3)} entries={[gap]} />);
+    expect(html).toContain("Changes were lost during an outage at site-1");
+    expect(count(html, "kh-alarm-indicator")).toBe(0);
   });
 });

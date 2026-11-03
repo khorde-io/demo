@@ -5,7 +5,9 @@ import type { HmiServices } from "../context.tsx";
 import { AppShell, bannerAlarm, Footer, Header, roleKey } from "./shell.tsx";
 
 const alarm = (over: Partial<Alarm>): Alarm => ({
+  key: "k1",
   instanceId: "i1",
+  origin: "hub",
   name: "wf_f3_t14_state",
   area: "vds.wf.f3",
   condition: "fault",
@@ -13,11 +15,13 @@ const alarm = (over: Partial<Alarm>): Alarm => ({
   severity: "high",
   priority: 1,
   value: 3,
-  timestamp: new Date("2026-10-25T17:32:07Z"),
+  setAt: new Date(0),
+  stateAt: new Date("2026-10-25T17:32:07Z"),
   acked: false,
-  ackTimestamp: null,
-  actorId: null,
-  actorDisplay: null,
+  ackPending: false,
+  ackedAt: null,
+  ackedBy: null,
+  originOnline: true,
   ...over,
 });
 
@@ -97,7 +101,7 @@ describe("header", () => {
     // Raised together: the most urgent one wins.
     expect(bannerAlarm([alarm({ instanceId: "p3", priority: 3 }), alarm({ instanceId: "p1", priority: 1 })])?.instanceId).toBe("p1");
     const later = new Date("2026-10-25T17:40:00Z");
-    expect(bannerAlarm([alarm({ instanceId: "old-p1" }), alarm({ instanceId: "new-p3", priority: 3, timestamp: later })])?.instanceId).toBe("new-p3");
+    expect(bannerAlarm([alarm({ instanceId: "old-p1" }), alarm({ instanceId: "new-p3", priority: 3, stateAt: later })])?.instanceId).toBe("new-p3");
   });
 });
 

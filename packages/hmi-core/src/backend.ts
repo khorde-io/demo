@@ -6,7 +6,9 @@
 
 import type { ConnectionState, Sink } from "./graphql/transport.ts";
 import type {
+  AckStatus,
   Alarm,
+  AlarmJournalEntry,
   CommandKey,
   Heartbeat,
   InterlockDetail,
@@ -47,6 +49,12 @@ export interface CommandRequest {
 
 export type HeartbeatKind = "agent" | "site";
 
+/** One change of the active alarm summary. `synced`: everything active at the start has been sent. */
+export type ActiveAlarmChange =
+  | { kind: "upsert"; alarm: Alarm }
+  | { kind: "remove"; instanceId: string }
+  | { kind: "synced" };
+
 export interface ScadaBackend {
   /** State of the live link (the subscription socket for the real backend). */
   readonly connection: Readable<ConnectionState>;
@@ -56,11 +64,12 @@ export interface ScadaBackend {
   subscribeMeasurementsByTag(tag: string, sink: Sink<Measurement>): Unsubscribe;
   history(type: MeasurementType, query: HistoryQuery): Promise<Page<Measurement>>;
 
-  activeAlarms(areas?: readonly string[]): Promise<Alarm[]>;
+  /** Sends every active alarm, then `synced`, then every change; again after a reconnect. */
+  subscribeActiveAlarms(areas: readonly string[], sink: Sink<ActiveAlarmChange>): Unsubscribe;
   /** Every recorded alarm change in the range, ordered by timestamp, then instance id. */
-  alarmHistory(query: RangePageQuery): Promise<Page<Alarm>>;
-  subscribeAlarms(areas: readonly string[], sink: Sink<Alarm>): Unsubscribe;
-  ackAlarm(instanceId: string): Promise<boolean>;
+  alarmJournal(query: RangePageQuery): Promise<Page<AlarmJournalEntry>>;
+  /** The result of the ack shows up on `subscribeActiveAlarms`. */
+  ackAlarm(key: string, instanceId: string): Promise<AckStatus>;
 
   /** Returns the request id to follow with `requestUpdates`. */
   sendCommand(key: CommandKey, request: CommandRequest): Promise<string>;

@@ -62,7 +62,7 @@ devenv shell -- bash -c 'npm run check'
 - The demo hub stops working after about 2 hours: sign-in returns a 500 and
   values go stale. `docker compose restart hub` in `hub/`.
 - History is paged, for measurements and alarms alike: a backend `history`
-  or `alarmHistory` call returns one `Page` (items and the `next` cursor),
+  or `alarmJournal` call returns one `Page` (items and the `next` cursor),
   and `collectPages` (`hmi-core/src/pages.ts`) follows them. The mock backend
   pages the same way, so tests catch a missed page.
 - Never commit `apps/demo-electrical/public/config.json`, `sim/keys/` or
