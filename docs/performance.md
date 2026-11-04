@@ -86,10 +86,9 @@ arrived, and the plant keeps running.
    then press **Run 20 s**. The first 1.5 s are left out of the statistics.
    Keep the page in view: a hidden page gets almost no frames, and the bench
    flags such a run.
-3. For real numbers, use a production build. In `.claude/launch.json`,
-   `demo-mock-prod` builds the mock app and serves it on port 4174 (UI only),
-   and `demo-hub-prod` builds the hub app and serves it on 5173, the
-   registered redirect URI, so both modes work. Or run:
+3. For real numbers, use a production build. `npm run release` builds the hub
+   app and serves it on 5173, the registered redirect URI, so both modes work.
+   For UI only without a hub, build the mock app and serve it on port 4174:
 
 ```bash
 cd apps/demo-electrical && VITE_HMI_BACKEND=mock npx vite build --outDir dist-mock && npx vite preview --outDir dist-mock --port 4174
