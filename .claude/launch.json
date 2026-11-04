@@ -45,7 +45,7 @@
         "--",
         "bash",
         "-c",
-        "cd apps/demo-electrical && npx vite build && npx vite preview --port 5173 --strictPort"
+        "npm run release"
       ],
       "port": 5173
     }

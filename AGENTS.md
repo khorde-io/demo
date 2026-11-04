@@ -17,6 +17,7 @@ devenv shell -- bash -c 'npm run check'
 | `npm run check` | Lint, typecheck of every package, and all tests. Run it before saying a change is done. |
 | `npm run dev:mock` | The demo on the in-browser simulator, at :5174. No hub needed. |
 | `npm run dev` | The demo against a hub, at :5173 (the registered redirect URI). |
+| `npm run release` | A production build against a hub, served at :5173. Rebuild to pick up a changed `config.json`. |
 | `npm run gen` | Regenerates the agent configs from `sim/src/plant.ts`. A test fails if they are out of date. |
 
 ## Where code goes
