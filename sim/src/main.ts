@@ -54,9 +54,11 @@ setInterval(() => {
 const perf = createPerfGenerator();
 const perfPublisher = createPublisher({ url: env("WINDFARM_AGENT_URL", "http://agent-windfarm:9090"), maxQueue: 10_000, log });
 setInterval(() => {
-  if (!perf.status()) return perfPublisher.clear();
-  const reports = perf.tick(Date.now());
-  if (reports.length) void perfPublisher.publish(reports);
+  // After a stop, what's queued is out of date, but the alarms must still return to normal.
+  const resets = perf.drain();
+  if (resets) perfPublisher.clear();
+  // Also on an empty list: it sends what a busy or failed request left queued.
+  void perfPublisher.publish(resets ?? perf.tick(Date.now()));
 }, 20);
 
 

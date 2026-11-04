@@ -35,6 +35,27 @@ with every update delivered. A development build (React
 StrictMode, profiler on) is slower: 1,000 × 1 Hz holds 59 fps, with React
 spending about 105 ms per second rendering.
 
+### Alarm floods
+
+The bench can add alarms to a run: each is raised and returned in turn, changing
+state every 2 s, and nobody acknowledges them, so the active list keeps growing
+as it does in a real flood. UI only, production build, headless Chrome, on
+2026-11-04:
+
+| Values | Alarms | Alarm changes | Listed at the end | Frame rate | Frame gap p95 / max | Long tasks | Alarm latency p50 / p95 / max |
+|---|---|---|---|---|---|---|---|
+| none | 50 | 25/s | 250 | 60 fps | 16.7 / 16.8 ms | 0 | 128 / 244 / 259 ms |
+| none | 200 | 100/s | 1,000 | 60 fps | 16.7 / 16.8 ms | 0 | 131 / 245 / 257 ms |
+| none | 500 | 250/s | 2,500 | 60 fps | 16.8 / 16.8 ms | 0 | 130 / 244 / 258 ms |
+| 1,000 × 1 Hz | 200 | 100/s | 1,000 | 60 fps | 16.7 / 16.8 ms | 0 | 126 / 239 / 271 ms |
+| 1,000 × 1 Hz | 500 | 250/s | 2,500 | 60 fps | 16.8 / 100 ms | 0 | 125 / 238 / 258 ms |
+
+The target holds in a flood, and values updating alongside keep their 18 ms
+median. Alarm latency is about 125 ms at the median by design: lists are
+published at most every 250 ms. Before the list was paged and batched, 500
+alarms gave 9 fps and 124 long tasks, and 1,000 × 1 Hz with 200 alarms gave
+16 fps. Not yet measured through the hub.
+
 ## Why it holds
 
 - **One subscription per screen.** The point store merges what every
@@ -51,6 +72,13 @@ spending about 105 ms per second rendering.
   path with every other on each change. Both now look exact paths up in a set
   and compare against wildcard patterns only (`pathMatcher`,
   `reducePatterns`). That took 2,000 × 2 Hz from 2 fps to the numbers above.
+- **The alarm list is drawn for a person.** However many alarms are active, it
+  draws one page of 20, and the store publishes at most four lists a second
+  (the first change after a quiet moment at once), merging what changed into
+  the sorted list. Nobody can read a list that moves faster, so the operator
+  loses nothing, and neither do the alarms: they're all in memory, and on the
+  next pages, or first when sorted by urgency. While the pointer or keyboard is on the list, its rows don't
+  move, so an Ack lands on the alarm being read.
 - **History is reduced before drawing.** A trend fetches all its points in
   one paged query (5,000 rows a page, 200,000 at most, newest first) and
   reduces each series to about 600 points while keeping peaks.
@@ -77,13 +105,23 @@ through a publisher of their own, so they never hold back plant values. If the
 agent refuses them because the config isn't uploaded, the bench says no values
 arrived, and the plant keeps running.
 
+The perf config also holds 500 digital alarms on `perfalarm.a0000::v` …
+`perfalarm.a0499::v`. A hub run with alarms leaves its mark: the points aren't
+stored, but **every raise, return and acknowledgement is a row in the hub's
+alarm journal**, so a run adds to what the alarm history shows. When a run ends
+the simulator returns its alarms to normal and the bench acknowledges them, so
+the user needs the right to acknowledge; if they don't have it, the bench says
+how many are left in the list. Latency uses the alarm's `stateAt`, so it only
+covers the whole chain if the hub carries over the time the value was produced.
+
 ## Running the bench
 
 1. `npm run dev` (or `dev:mock`), sign in, and open **Performance bench** in
    the footer.
 2. Pick **UI only** or **Through the hub** (hub runs need the perf config
-   above and the simulator from `sim/`), the number of points and the rate,
-   then press **Run 20 s**. The first 1.5 s are left out of the statistics.
+   above and the simulator from `sim/`), the number of points, the rate and
+   the number of alarms, then press **Run 20 s**. **No values** with some
+   alarms measures alarms alone. The first 1.5 s are left out of the statistics.
    Keep the page in view: a hidden page gets almost no frames, and the bench
    flags such a run.
 3. For real numbers, use a production build. `npm run release` builds the hub
@@ -103,6 +141,8 @@ has the profiler compiled out.
   `usePointValues` for logic that needs a whole set at once, such as the
   single-line's energization or an overview total.
 - Wrap repeated cells in `memo`, so a parent's re-render doesn't redraw them.
+- Don't draw every alarm: give a custom list pages too, and batch what it
+  redraws. A flood is exactly when the screen has to keep working.
 - Keep alarm-driven lookups indexed (`useEquipmentAlarms` builds its index
   once per alarm change, not per symbol).
 - Watch the bench's long-task count when you add widgets: any long task is a

@@ -5,7 +5,7 @@
  */
 
 import { stringify } from "yaml";
-import { perfPoints, PERF_AGENT } from "./perf.ts";
+import { perfAlarmPoints, perfAlarms, perfPoints, PERF_AGENT } from "./perf.ts";
 import { driverPath, type AgentName, type Plant } from "./plant.ts";
 
 export const SCHEMA_URL = "https://schemas.khorde.io/v1/agent-config.yaml";
@@ -55,12 +55,13 @@ export function agentConfigs(plant: Plant): Record<AgentName, AgentConfig> {
   return out;
 }
 
-/** The plant's config plus the end-to-end performance points (see perf.ts). */
+/** The plant's config plus the end-to-end performance points and alarms (see perf.ts). */
 export function perfConfigYaml(plant: Plant): string {
   const points = perfPoints();
+  const alarmPoints = perfAlarmPoints();
   return agentConfigYaml(
-    { ...plant, points: [...plant.points, ...points] },
-    `Perf variant: ${points.length} test points perf.pNNNN::v on ${PERF_AGENT}, for the HMI's performance bench. Upload it only to run the bench through the hub.`,
+    { ...plant, points: [...plant.points, ...points, ...alarmPoints], alarms: [...plant.alarms, ...perfAlarms()] },
+    `Perf variant: ${points.length} test points perf.pNNNN::v and ${alarmPoints.length} test alarms on perfalarm.aNNNN::v, on ${PERF_AGENT}, for the HMI's performance bench. Upload it only to run the bench through the hub.`,
   );
 }
 

@@ -23,7 +23,8 @@
 .kh-alarms-filter input { font: inherit; min-height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--proc-border); background: var(--proc-bg); color: var(--text-value); width: 220px; }
 .kh-alarms-range { font-variant-numeric: tabular-nums; }
 .kh-alarms-count { color: var(--text-label); margin-right: auto; }
-.kh-alarms-foot { margin: 0; color: var(--text-label); font-size: 13px; }
+.kh-alarms-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-label); font-size: 13px; }
+.kh-alarms-pager { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 .kh-table-wrap { overflow: auto; min-width: 0; border: 1px solid var(--proc-border); border-radius: 10px; }
 .kh-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -34,5 +35,6 @@
 .kh-col-priority { width: 48px; }
 .kh-col-action { width: 72px; text-align: right; }
 .kh-row--unacked td { font-weight: 600; }
+.kh-row--gone td { color: var(--text-label); }
 .kh-row--selected td { background: var(--proc-surface-2); }
 .kh-empty { margin: 0; padding: 16px; color: var(--text-label); }

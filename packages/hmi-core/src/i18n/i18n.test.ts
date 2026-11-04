@@ -85,6 +85,16 @@ describe("i18n", () => {
     expect(onMissing).toHaveBeenCalledWith("alarms.unknown.set", "en");
   });
 
+  it("reuses formatters without mixing up options or locales", () => {
+    const t = i18n();
+    const spy = vi.spyOn(Intl, "NumberFormat");
+    expect(t.formatNumber(1.5, { maximumFractionDigits: 0 })).toBe("2");
+    expect(t.formatNumber(1.4, { maximumFractionDigits: 0 })).toBe("1");
+    expect(t.formatNumber(1.5, { maximumFractionDigits: 1 })).toBe("1.5");
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
+  });
+
   it("formats numbers and dates for the locale", () => {
     expect(i18n().formatNumber(1186.5, { maximumFractionDigits: 1 })).toBe("1,186.5");
     expect(i18n().formatDateTime(new Date("2026-10-25T14:32:41Z"), { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hour12: false })).toBe("14:32");

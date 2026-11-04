@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAlarmStore, filterAlarms, loadAlarmHistory } from "./alarms.ts";
+import { createAlarmJournalReader, createAlarmStore as createStore, filterAlarms, loadAlarmHistory, sortAlarms, type AlarmStoreOptions } from "./alarms.ts";
 import type { ActiveAlarmChange, Sink } from "./backend.ts";
 import { createMockBackend } from "./mock/backend.ts";
 import type { Alarm } from "./model.ts";
@@ -25,6 +25,9 @@ const alarm = (over: Partial<Alarm>): Alarm => ({
   originOnline: true,
   ...over,
 });
+
+/** Publishing every change, so tests read the list right after a change; batching has its own tests. */
+const createAlarmStore = (backend: Parameters<typeof createStore>[0], options: AlarmStoreOptions = {}) => createStore(backend, { publishEveryMs: 0, ...options });
 
 /** A backend whose alarm stream the test drives by hand. */
 function scripted() {
@@ -243,6 +246,84 @@ describe("alarm store", () => {
   });
 });
 
+describe("alarm store in a flood", () => {
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 25, 12, 0, s));
+
+  it("publishes the first change at once and the rest together", () => {
+    vi.useFakeTimers();
+    try {
+      const { backend, send } = scripted();
+      const store = createStore(backend);
+      void store.start();
+      send({ kind: "synced" });
+      vi.advanceTimersByTime(1000);
+      const published = vi.fn();
+      const off = store.subscribe(published);
+      published.mockClear();
+
+      send({ kind: "upsert", alarm: alarm({ instanceId: "a" }) });
+      expect(published).toHaveBeenCalledTimes(1);
+      send({ kind: "upsert", alarm: alarm({ instanceId: "b" }) }, { kind: "upsert", alarm: alarm({ instanceId: "c" }) });
+      expect(published).toHaveBeenCalledTimes(1);
+      expect(store.get().alarms).toHaveLength(1);
+
+      vi.advanceTimersByTime(250);
+      expect(published).toHaveBeenCalledTimes(2);
+      expect(store.get().counts.total).toBe(3);
+      off();
+      store.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the order when changes are merged in", () => {
+    const { backend, send } = scripted();
+    const store = createStore(backend, { publishEveryMs: 0 });
+    void store.start();
+    send(
+      { kind: "upsert", alarm: alarm({ instanceId: "old", stateAt: at(1) }) },
+      { kind: "upsert", alarm: alarm({ instanceId: "mid", stateAt: at(2) }) },
+      { kind: "upsert", alarm: alarm({ instanceId: "new", stateAt: at(3) }) },
+      { kind: "synced" },
+    );
+    // Returning the oldest moves it to the top; a late report lands by its own time.
+    send({ kind: "upsert", alarm: alarm({ instanceId: "old", state: "Reset", stateAt: at(5) }) });
+    send({ kind: "upsert", alarm: alarm({ instanceId: "late", stateAt: at(2), priority: 1 }) });
+    send({ kind: "remove", instanceId: "new" });
+    expect(store.get().alarms.map((a) => a.instanceId)).toEqual(["old", "late", "mid"]);
+    expect(store.get().counts.total).toBe(3);
+  });
+
+  it("doesn't publish a half-synced list when a publish was pending", async () => {
+    vi.useFakeTimers();
+    try {
+      const backend = createMockBackend(feederBay());
+      const store = createStore(backend);
+      const started = store.start();
+      await vi.advanceTimersByTimeAsync(0);
+      await started;
+      await vi.advanceTimersByTimeAsync(1000);
+      backend.raiseAlarm({ name: "a", area: "vds.sub", severity: "low" });
+      await vi.advanceTimersByTimeAsync(0);
+      const b = backend.raiseAlarm({ name: "b", area: "vds.sub", severity: "low" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.get().alarms).toHaveLength(1);
+
+      // The link drops with b waiting to be published: nothing shows until the hub has listed again.
+      backend.setConnection("offline");
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(store.get().alarms).toHaveLength(1);
+      backend.setConnection("online");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.get().alarms.map((x) => x.instanceId)).toContain(b.instanceId);
+      store.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("loadAlarmHistory", () => {
   it("returns every change in the range, newest first and filtered", async () => {
     let t = 1000;
@@ -294,6 +375,97 @@ describe("loadAlarmHistory", () => {
     expect(all.map((a) => a.name)).toEqual(["a7", "a6", "a5", "a4", "a3", "a2", "a1"]);
     const capped = await loadAlarmHistory(backend, range, {}, { pageSize: 3, maxRows: 4 });
     expect(capped.map((a) => a.name)).toEqual(["a7", "a6", "a5", "a4"]);
+  });
+});
+
+describe("alarm journal reader", () => {
+  const journal = (count: number) => {
+    let t = 0;
+    const backend = createMockBackend(feederBay({ now: () => new Date(t) }));
+    for (let i = 1; i <= count; i++) {
+      t = i * 1000;
+      backend.raiseAlarm({ name: `a${i}`, area: i % 10 === 0 ? "vds.wf.f1" : "vds.sub", severity: "low" });
+    }
+    return { backend, range: { from: new Date(0), to: new Date(t) } };
+  };
+
+  it("reads only the pages it is asked for, newest first", async () => {
+    const { backend, range } = journal(1000);
+    const spy = vi.spyOn(backend, "alarmJournal");
+    const reader = createAlarmJournalReader(backend, range, {}, { pageSize: 100 });
+    const first = await reader.readUntil(51);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(first.rows).toHaveLength(100);
+    expect(first.rows[0]?.name).toBe("a1000");
+    expect(first.done).toBe(false);
+
+    await reader.readUntil(100);
+    expect(spy).toHaveBeenCalledTimes(1);
+    const second = await reader.readUntil(101);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy.mock.calls[1]?.[0]).toMatchObject({ order: "desc", first: 100, after: "100" });
+    expect(second.rows).toHaveLength(200);
+    expect(second.rows[100]?.name).toBe("a900");
+  });
+
+  it("says when the journal ends, and asks for nothing after that", async () => {
+    const { backend, range } = journal(5);
+    const spy = vi.spyOn(backend, "alarmJournal");
+    const reader = createAlarmJournalReader(backend, range, {}, { pageSize: 100 });
+    expect(await reader.readUntil(51)).toMatchObject({ done: true });
+    expect((await reader.readUntil(1000)).rows).toHaveLength(5);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads on until a narrow filter has enough rows, and keeps gaps", async () => {
+    const { backend, range } = journal(1000);
+    const spy = vi.spyOn(backend, "alarmJournal");
+    const reader = createAlarmJournalReader(backend, range, { areas: ["vds.wf.>"] }, { pageSize: 100 });
+    const { rows } = await reader.readUntil(25);
+    expect(spy).toHaveBeenCalledTimes(3);
+    expect(rows).toHaveLength(30);
+    expect(rows.every((r) => r.area === "vds.wf.f1")).toBe(true);
+  });
+
+  it("can try again after a failed read, without losing its place", async () => {
+    const { backend, range } = journal(300);
+    const reader = createAlarmJournalReader(backend, range, {}, { pageSize: 100 });
+    await reader.readUntil(1);
+    const spy = vi.spyOn(backend, "alarmJournal").mockRejectedValueOnce(new Error("down"));
+    await expect(reader.readUntil(101)).rejects.toThrow("down");
+    const { rows } = await reader.readUntil(101);
+    expect(rows).toHaveLength(200);
+    expect(spy.mock.calls[1]?.[0]).toMatchObject({ after: "100" });
+  });
+
+  it("stops reading when cancelled", async () => {
+    const { backend, range } = journal(300);
+    const spy = vi.spyOn(backend, "alarmJournal");
+    const reader = createAlarmJournalReader(backend, range, {}, { pageSize: 100 });
+    reader.cancel();
+    expect((await reader.readUntil(50)).rows).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("sortAlarms", () => {
+  const t = (s: number) => new Date(Date.UTC(2026, 9, 25, 12, 0, s));
+  const list = [
+    alarm({ instanceId: "p3-new", priority: 3, stateAt: t(9) }),
+    alarm({ instanceId: "p1-acked", priority: 1, acked: true, stateAt: t(8) }),
+    alarm({ instanceId: "p2", priority: 2, stateAt: t(7) }),
+    alarm({ instanceId: "p1-old", priority: 1, stateAt: t(1) }),
+    alarm({ instanceId: "p1-new", priority: 1, stateAt: t(2) }),
+  ];
+
+  it("puts the most urgent first: priority, then not acknowledged, then newest", () => {
+    expect(sortAlarms(list, "urgent").map((a) => a.instanceId)).toEqual(["p1-new", "p1-old", "p1-acked", "p2", "p3-new"]);
+  });
+
+  it("sorts by the newest change, and leaves the list it was given alone", () => {
+    const before = [...list];
+    expect(sortAlarms(list, "newest").map((a) => a.instanceId)).toEqual(["p3-new", "p1-acked", "p2", "p1-new", "p1-old"]);
+    expect(list).toEqual(before);
   });
 });
 

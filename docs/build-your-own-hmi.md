@@ -178,12 +178,17 @@ and the condition that stops the command is marked.
 
 ## 7. Alarms and history
 
-- `<AlarmList>` is the live list, with filters by area, priority and text, and
-  ack where the user has `ScadaAlarmAck`. The list follows ISA-18.2: an alarm
+- `<AlarmList>` is the live list, one page at a time (`pageSize`), newest or
+  most urgent first as the operator chooses (`defaultOrder` sets where it opens),
+  with rows that hold still while the operator uses them, filters by area,
+  priority and text, and ack where the user has `ScadaAlarmAck`. "Ack visible" takes only the
+  rows on the page. The list follows ISA-18.2: an alarm
   stays until it is both cleared and acknowledged, and a returned,
   unacknowledged alarm is shown as such.
 - `<AlarmHistoryList from to filter>` is the event log for a time range, read
-  only, with CSV export.
+  only, one page at a time (`pageSize`). It reads the journal only as far as the
+  operator goes (`createAlarmJournalReader`), and the CSV export reads the whole
+  range.
 - `useTrend(ids, type, windowMs, label)` with `<TrendChart>` fills a trend from
   history and keeps it moving live. One query covers all the trend's points,
   page by page, and each series is reduced without losing peaks.

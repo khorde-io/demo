@@ -25,6 +25,7 @@ describe("perf routes", () => {
     expect(start.headers.get("access-control-allow-origin")).toBe("http://localhost:5173");
     expect((await start.json()).run).toMatchObject({ points: 50, hz: 2 });
     expect(perf.status()?.points).toBe(50);
+    expect(perf.status()?.alarms).toBe(0);
     const stop = await post("/perf/stop", {});
     expect((await stop.json()).run.points).toBe(50);
     expect(perf.status()).toBe(null);
@@ -39,5 +40,6 @@ describe("perf routes", () => {
 
   it("refuses a run larger than the config holds", async () => {
     expect((await post("/perf/start", { points: 101, hz: 1 })).status).toBe(400);
+    expect((await post("/perf/start", { points: 0, hz: 1 })).status).toBe(400);
   });
 });
