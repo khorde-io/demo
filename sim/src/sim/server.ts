@@ -5,7 +5,7 @@
  *   POST /scenario/<name>  trigger a scenario (see SCENARIOS)
  *   GET  /state            a few key values, for a quick look
  *   GET  /health
- *   POST /perf/start       { points, hz }: start the end-to-end performance points
+ *   POST /perf/start       { points, hz, alarms? }: start the end-to-end performance points
  *   POST /perf/stop        stop them; GET /perf: the current run
  *
  * The /perf routes answer browsers on localhost (CORS), so the HMI's
@@ -61,14 +61,14 @@ export function createSimServer(sim: Simulation, log: (msg: string) => void = ()
         if (req.method === "OPTIONS") return reply(res, 204, null);
         if (req.method === "GET" && url.pathname === "/perf") return reply(res, 200, { run: perf.status() });
         if (req.method === "POST" && url.pathname === "/perf/start") {
-          const body = (await readJson(req)) as { points?: unknown; hz?: unknown } | null;
-          const run = perf.start(Number(body?.points), Number(body?.hz));
-          log(`perf: ${run.points} points at ${run.hz} Hz`);
+          const body = (await readJson(req)) as { points?: unknown; hz?: unknown; alarms?: unknown } | null;
+          const run = perf.start(Number(body?.points), Number(body?.hz), Number(body?.alarms ?? 0));
+          log(`perf: ${run.points} points at ${run.hz} Hz, ${run.alarms} alarms`);
           return reply(res, 200, { run });
         }
         if (req.method === "POST" && url.pathname === "/perf/stop") {
           const run = perf.stop();
-          if (run) log(`perf: stopped after ${run.sent} values`);
+          if (run) log(`perf: stopped after ${run.sent} values and ${run.alarmChanges} alarm changes`);
           return reply(res, 200, { run });
         }
       }

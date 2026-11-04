@@ -148,6 +148,19 @@ export function createI18n(options: I18nOptions): I18n {
     return interpolate(text, params);
   };
 
+  // Making a formatter is slow and every row of every list asks for several.
+  const numberFormats = new Map<string, Intl.NumberFormat>();
+  const dateFormats = new Map<string, Intl.DateTimeFormat>();
+  const cached = <F,>(formats: Map<string, F>, opts: object | undefined, make: () => F): F => {
+    const key = `${locale.get()} ${JSON.stringify(opts)}`;
+    let format = formats.get(key);
+    if (!format) {
+      format = make();
+      formats.set(key, format);
+    }
+    return format;
+  };
+
   return {
     locale,
     setLocale: (l) => locale.set(l),
@@ -178,7 +191,7 @@ export function createI18n(options: I18nOptions): I18n {
       return `${alarm.name} · ${alarm.condition}`;
     },
 
-    formatNumber: (value, opts) => new Intl.NumberFormat(locale.get(), opts).format(value),
-    formatDateTime: (value, opts) => new Intl.DateTimeFormat(locale.get(), opts).format(value),
+    formatNumber: (value, opts) => cached(numberFormats, opts, () => new Intl.NumberFormat(locale.get(), opts)).format(value),
+    formatDateTime: (value, opts) => cached(dateFormats, opts, () => new Intl.DateTimeFormat(locale.get(), opts)).format(value),
   };
 }
