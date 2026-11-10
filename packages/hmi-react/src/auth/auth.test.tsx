@@ -30,4 +30,33 @@ describe("auth gate", () => {
     expect(denied).toContain("Vera Viewer");
     expect(render(<AuthGate auth={fakeAuth(state("signedIn"), true)} site="VDS">hmi</AuthGate>)).toBe("hmi");
   });
+
+  const accounts = [
+    { role: "viewer" as const, username: "viewer@vds.test", password: "look-only" },
+    { role: "operator" as const, username: "operator@vds.test", password: "hands-on" },
+  ];
+
+  it("lists the demo accounts with their passwords, and says the plant is shared", () => {
+    const html = render(
+      <AuthGate auth={fakeAuth(state("signedOut"), false)} site="VDS" demoAccounts={accounts}>
+        hmi
+      </AuthGate>,
+    );
+    expect(html).toContain("other visitors may be operating it");
+    expect(html).toContain("operator@vds.test");
+    expect(html).toContain("hands-on");
+    expect(html).toContain("Sign in as Operator");
+    expect(html).toContain("Sign in with your own Khorde ID");
+    expect(html).not.toContain("Use your Khorde ID");
+  });
+
+  it("goes back to the accounts, not the expired screen, in a demo", () => {
+    const html = render(
+      <AuthGate auth={fakeAuth(state("signedOut"), false)} site="VDS" demoAccounts={accounts}>
+        hmi
+      </AuthGate>,
+    );
+    expect(gateView(state("signedOut"), true, false)).toBe("expired");
+    expect(html).not.toContain("Your session expired");
+  });
 });

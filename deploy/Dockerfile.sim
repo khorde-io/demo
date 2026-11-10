@@ -1,0 +1,23 @@
+# The plant simulator for the public demo: steps the Ventos da Serra model,
+# pushes values to both REST agents and serves their command webhook on 8091.
+# Internal only; nothing outside the cluster should reach it.
+#
+# Node runs the TypeScript directly, and only Node built-ins are used at run
+# time, so there is no install step. The bench's load generator is off
+# (PERF=off); set the agent URLs to the agents' services.
+
+FROM node:24-alpine
+WORKDIR /sim
+COPY sim/package.json ./
+COPY sim/src ./src
+# COPY keeps the checkout's modes, which may be owner-only; the node user only reads.
+RUN chmod -R a+rX,go-w /sim
+ENV NODE_ENV=production \
+    PORT=8091 \
+    PERF=off \
+    SUBSTATION_AGENT_URL=http://agent-substation:9090 \
+    WINDFARM_AGENT_URL=http://agent-windfarm:9090
+# Numeric (the node user), so Kubernetes can check runAsNonRoot.
+USER 1000:1000
+EXPOSE 8091
+CMD ["node", "src/main.ts"]

@@ -3,6 +3,18 @@
  * point at a local hub or at the SaaS.
  */
 
+/** A shared account offered on the sign-in screen of a public demonstration. */
+export interface DemoAccount {
+  role: DemoRole;
+  /** The login name, filled in on the identity provider's page. */
+  username: string;
+  /** Public on purpose: shown on the sign-in screen. */
+  password: string;
+}
+
+export const DEMO_ROLES = ["viewer", "operator", "supervisor"] as const;
+export type DemoRole = (typeof DEMO_ROLES)[number];
+
 export interface HmiConfig {
   siteName: string;
   auth: {
@@ -23,6 +35,11 @@ export interface HmiConfig {
   agents?: string[];
   /** Site (leaf) names to watch, for hybrid deployments. */
   sites?: string[];
+  /**
+   * A public demonstration: the sign-in screen lists these shared accounts with
+   * their passwords, and the HMI says the plant is shared with other visitors.
+   */
+  demo?: { accounts: DemoAccount[] };
 }
 
 export class ConfigError extends Error {
@@ -107,6 +124,21 @@ export function validateConfig(raw: unknown, options: ValidateOptions = {}): Hmi
   const sites = strList(root, "sites", "config");
   if (agents) config.agents = agents;
   if (sites) config.sites = sites;
+  if (root.demo !== undefined) {
+    const demo = isObj(root.demo) ? root.demo : (problems.push("demo must be an object"), {});
+    const list = Array.isArray(demo.accounts) ? demo.accounts : (problems.push("demo.accounts must be a list"), []);
+    const accounts: DemoAccount[] = [];
+    list.forEach((a: unknown, i) => {
+      const where = `demo.accounts[${i}]`;
+      if (!isObj(a)) return void problems.push(`${where} must be an object`);
+      const role = a.role;
+      if (!(DEMO_ROLES as readonly unknown[]).includes(role)) problems.push(`${where}.role must be one of ${DEMO_ROLES.join(", ")}`);
+      const username = str(a, "username", where);
+      const password = str(a, "password", where);
+      if (username && password && (DEMO_ROLES as readonly unknown[]).includes(role)) accounts.push({ role: role as DemoRole, username, password });
+    });
+    config.demo = { accounts };
+  }
 
   if (config.themes.length === 0) config.themes = config.defaults.theme ? [config.defaults.theme] : [];
   if (config.defaults.theme && !config.themes.includes(config.defaults.theme)) {

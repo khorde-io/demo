@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "release": "vite build && vite preview --port 5173 --strictPort",
+    "build:public": "VITE_DEV_PAGES=false vite build",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

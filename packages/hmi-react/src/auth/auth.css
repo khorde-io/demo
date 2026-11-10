@@ -1,11 +1,23 @@
 /* Sign-in screens: application chrome, brand colours allowed. */
 
-.kh-auth { min-height: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: var(--chrome-bg); color: var(--chrome-text); font-family: var(--hmi-font); }
+.kh-auth { min-height: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; box-sizing: border-box; background: var(--chrome-bg); color: var(--chrome-text); font-family: var(--hmi-font); }
 .kh-auth-card { width: min(440px, 100%); display: flex; flex-direction: column; gap: 16px; }
+.kh-auth-card--wide { width: min(980px, 100%); }
 .kh-auth-card h1 { margin: 0; font-size: 32px; font-weight: 600; text-wrap: balance; }
 .kh-auth-card p { margin: 0; color: var(--chrome-text-muted); line-height: 1.5; }
 .kh-auth-error { color: var(--chrome-text) !important; font-weight: 600; }
 .kh-auth-btn { font: inherit; font-weight: 600; min-height: 48px; border-radius: 10px; border: 0; background: var(--chrome-accent); color: var(--khorde-ink, #050402); cursor: pointer; }
 .kh-auth-btn:disabled { opacity: 0.6; cursor: progress; }
 .kh-auth-btn--quiet { background: transparent; color: var(--chrome-text); border: 1px solid var(--chrome-border); }
+.kh-auth-shared { color: var(--chrome-text) !important; font-weight: 600; }
+.kh-auth-accounts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.kh-auth-account { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--chrome-border); border-radius: 12px; background: var(--chrome-raised); }
+.kh-auth-account h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.kh-auth-account p { flex: 1; font-size: 14px; }
+.kh-auth-account dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 10px; font-size: 13px; }
+.kh-auth-account dt { color: var(--chrome-text-muted); }
+.kh-auth-account dd { margin: 0; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.kh-auth-account code { font-family: var(--hmi-mono); overflow-wrap: anywhere; flex: 1; }
+.kh-auth-copy { font: inherit; font-size: 12px; min-height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--chrome-border); background: transparent; color: var(--chrome-text); cursor: pointer; }
+.kh-auth-copy:focus-visible { outline: 3px solid var(--chrome-text); outline-offset: 2px; }
 .kh-auth-btn:focus-visible { outline: 3px solid var(--chrome-text); outline-offset: 3px; }

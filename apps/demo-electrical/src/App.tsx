@@ -1,8 +1,8 @@
 import { AppShell, AuthGate, Footer, Header, HmiProvider, roleKey, useI18n, useReadable } from "@khorde/hmi-react";
 import { SCENARIOS, type Scenario } from "@khorde/demo-plant/sim";
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, lazy, use, useEffect, useState } from "react";
 import { startOnce, type Booted } from "./boot.ts";
-import { InterlockWorkbench, type BenchCommand } from "./InterlockWorkbench.tsx";
+import type { BenchCommand } from "./InterlockWorkbench.tsx";
 import { DEV_PAGES, PAGES, parseRoute, routeHash, type PageId, type Route } from "./navigation.ts";
 import { plant } from "./plant.ts";
 import { AlarmsScreen } from "./screens/AlarmsScreen.tsx";
@@ -12,8 +12,14 @@ import { OverviewScreen } from "./screens/OverviewScreen.tsx";
 import { SubstationScreen } from "./screens/SubstationScreen.tsx";
 import { TrendsScreen } from "./screens/TrendsScreen.tsx";
 import { WindFarmScreen } from "./screens/WindFarmScreen.tsx";
-import { PerfBench } from "./PerfBench.tsx";
-import { SymbolSheet } from "./SymbolSheet.tsx";
+
+// Loaded only when opened, and left out of a build without development pages:
+// the flag is replaced by a constant at build time, so the imports go with it
+// (it has to be spelled out here for that, not imported).
+const DEV = import.meta.env.VITE_DEV_PAGES !== "false";
+const InterlockWorkbench = DEV ? lazy(() => import("./InterlockWorkbench.tsx").then((m) => ({ default: m.InterlockWorkbench }))) : null;
+const SymbolSheet = DEV ? lazy(() => import("./SymbolSheet.tsx").then((m) => ({ default: m.SymbolSheet }))) : null;
+const PerfBench = DEV ? lazy(() => import("./PerfBench.tsx").then((m) => ({ default: m.PerfBench }))) : null;
 
 const BENCH: BenchCommand[] = [
   { key: { agent: plant.agents.substation, equipment: "vds.sub.mv.bc.cb", name: "pos.close" }, verb: "Close" },
@@ -69,11 +75,11 @@ function Frame({ booted }: { booted: Booted }) {
       case "comms":
         return <CommsScreen agents={hmi.agents} onOpenTurbine={(id) => navigate("windfarm", id)} />;
       case "interlocks":
-        return <InterlockWorkbench commands={BENCH} backend={site?.backend ?? null} />;
+        return InterlockWorkbench && <InterlockWorkbench commands={BENCH} backend={site?.backend ?? null} />;
       case "symbols":
-        return <SymbolSheet />;
+        return SymbolSheet && <SymbolSheet />;
       case "perf":
-        return <PerfBench hubAvailable={!site} simUrl={import.meta.env.VITE_SIM_URL ?? "http://localhost:8091"} />;
+        return PerfBench && <PerfBench hubAvailable={!site} simUrl={import.meta.env.VITE_SIM_URL ?? "http://localhost:8091"} />;
       default:
         return <OverviewScreen onNavigate={navigate} />;
     }
@@ -91,7 +97,8 @@ function Frame({ booted }: { booted: Booted }) {
           onNavigate={(id) => navigate(id as PageId)}
           breadcrumb={crumbs(route, (id) => i18n.equipmentName(id))}
           user={session.user ? { name: session.user.name, role: i18n.t(roleKey(session.roles)) } : null}
-          onSwitchUser={() => void hmi.auth.login()}
+          // In a public demo, back to the sign-in screen and its list of accounts.
+          onSwitchUser={() => void (hmi.config.demo ? hmi.auth.logout() : hmi.auth.login())}
           onSignOut={() => void hmi.auth.logout()}
           {...(hmi.auth.can("ackAlarm") ? { onAck: (a: { instanceId: string }) => void hmi.alarms.ack(a.instanceId) } : {})}
           onOpenAlarms={() => navigate("alarms")}
@@ -133,11 +140,12 @@ function Frame({ booted }: { booted: Booted }) {
               {p.label}
             </a>
           ))}
+          {hmi.config.demo && <span className="footer-shared">{i18n.t("auth.demo.sharedShort")}</span>}
           <span>{site ? "In-browser simulator" : hmi.config.api.http} · Khorde HMI demo v0.1</span>
         </Footer>
       }
     >
-      {screen}
+      <Suspense fallback={null}>{screen}</Suspense>
     </AppShell>
   );
 }
@@ -161,7 +169,7 @@ export function App({ booted }: { booted: Booted }) {
   const { hmi } = booted;
   return (
     <HmiProvider hmi={hmi}>
-      <AuthGate auth={hmi.auth} site={hmi.config.siteName} logo={LOGO}>
+      <AuthGate auth={hmi.auth} site={hmi.config.siteName} logo={LOGO} demoAccounts={hmi.config.demo?.accounts}>
         <Suspense fallback={<Starting />}>
           <Started booted={booted} />
         </Suspense>

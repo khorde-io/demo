@@ -36,7 +36,9 @@ The same build runs against any backend: the URLs are read at startup from
   command, `ScadaAlarmAck` to acknowledge, `ScadaInterlockBypass` to bypass.
   Roles only decide what the UI offers; the API checks them again.
 - The demo ships `public/config.example.json` (local hub) and
-  `config.saas.example.json`. Keep the real `config.json` out of git.
+  `config.saas.example.json`. Keep the real `config.json` out of git. A `demo`
+  block lists shared accounts on the sign-in screen, for a public demo
+  ([public-demo.md](public-demo.md)).
 
 ## 2. Wire the core
 

@@ -97,7 +97,7 @@ export class AuthRequiredError extends Error {
 /** The part of oidc-client-ts's UserManager this module uses (for tests). */
 export interface UserManagerLike {
   getUser(): Promise<User | null>;
-  signinRedirect(args?: { prompt?: string }): Promise<void>;
+  signinRedirect(args?: { prompt?: string; login_hint?: string }): Promise<void>;
   signinRedirectCallback(): Promise<User>;
   signinSilent(): Promise<User | null>;
   signoutRedirect(): Promise<void>;
@@ -117,8 +117,13 @@ export interface Auth extends Readable<AuthState>, Permissions {
    * picker: with another live session in the browser (the control plane uses
    * the same IdP), it would otherwise sign in with that one without asking.
    * Also how to switch to another user while signed in.
+   *
+   * With `username`, the provider's page opens on that account instead, with the
+   * name filled in, and asks for its password: how a demo account is used. Only
+   * a `login_hint` then, no `prompt=login`: Zitadel's Login V2 drops the app's
+   * request after a forced login and lands on its default redirect.
    */
-  login(): Promise<void>;
+  login(username?: string): Promise<void>;
   /** Ends the session at the identity provider too (end-session endpoint), not just here. */
   logout(): Promise<void>;
   /** A valid access token, renewing it silently if needed. */
@@ -196,7 +201,7 @@ export function createAuth(config: HmiConfig["auth"], options: AuthOptions = {})
       return state.get();
     },
 
-    login: () => manager.signinRedirect({ prompt: "select_account" }),
+    login: (username) => manager.signinRedirect(username ? { login_hint: username } : { prompt: "select_account" }),
 
     async logout() {
       await manager.signoutRedirect();

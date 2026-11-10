@@ -73,6 +73,7 @@ services:
       # Must match the config uploaded to the hub (npm run gen -w @khorde/demo-plant).
       TURBINES_PER_FEEDER: "${TURBINES_PER_FEEDER:-6}"
       SCENARIO: "${SCENARIO:-showcase}"
+      PERF: "${PERF:-on}"
       THERMAL_SPEED: "${THERMAL_SPEED:-10}"
     depends_on:
       - agent-substation

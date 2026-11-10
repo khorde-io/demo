@@ -7,4 +7,6 @@ interface ImportMetaEnv {
   readonly VITE_HMI_CONFIG?: string;
   /** The plant simulator's HTTP endpoint, for the performance bench's hub mode. */
   readonly VITE_SIM_URL?: string;
+  /** `false` leaves the development pages (benches, symbol sheet) out of the build, for a public deployment. */
+  readonly VITE_DEV_PAGES?: string;
 }

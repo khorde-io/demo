@@ -71,6 +71,7 @@ Set these in the environment of `docker compose up`:
 | `TURBINES_PER_FEEDER` | `6` | Must match the uploaded config. Regenerate it with `TURBINES_PER_FEEDER=15 npm run gen -w @khorde/demo-plant`. |
 | `SCENARIO` | `showcase` | Initial state. |
 | `THERMAL_SPEED` | `10` | Transformer temperatures move this many times faster than real time. |
+| `PERF` | `on` | `off` drops the `/perf` routes and the generator, for a public deployment. |
 
 ## Changing the plant
 

@@ -11,3 +11,6 @@ devenv.local.nix
 .pre-commit-config.yaml
 
 .DS_Store
+
+# The registry the image is pushed to
+deploy/registry.env

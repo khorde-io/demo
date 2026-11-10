@@ -16,14 +16,23 @@ export const PAGES = [
   { id: "comms", label: "Comms", level: "L4" },
 ] as const;
 
-/** Development pages, reachable from the footer. */
-export const DEV_PAGES = [
+const ALL_DEV_PAGES = [
   { id: "interlocks", label: "Interlock bench" },
   { id: "symbols", label: "Symbol sheet" },
   { id: "perf", label: "Performance bench" },
 ] as const;
 
-export type PageId = (typeof PAGES)[number]["id"] | (typeof DEV_PAGES)[number]["id"];
+/**
+ * Whether this build has the development pages. A public deployment leaves
+ * them out (`VITE_DEV_PAGES=false`): the performance bench can load the hub
+ * with thousands of values a second.
+ */
+export const DEV_PAGES_ENABLED = import.meta.env.VITE_DEV_PAGES !== "false";
+
+/** Development pages, reachable from the footer. */
+export const DEV_PAGES: readonly (typeof ALL_DEV_PAGES)[number][] = DEV_PAGES_ENABLED ? ALL_DEV_PAGES : [];
+
+export type PageId = (typeof PAGES)[number]["id"] | (typeof ALL_DEV_PAGES)[number]["id"];
 
 export interface Route {
   page: PageId;

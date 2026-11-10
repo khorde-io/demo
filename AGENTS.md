@@ -18,6 +18,8 @@ devenv shell -- bash -c 'npm run check'
 | `npm run dev:mock` | The demo on the in-browser simulator, at :5174. No hub needed. |
 | `npm run dev` | The demo against a hub, at :5173 (the registered redirect URI). |
 | `npm run release` | A production build against a hub, served at :5173. Rebuild to pick up a changed `config.json`. |
+| `npm run build:public -w @khorde/demo-electrical` | The build for a public demo: no benches or symbol sheet. See [docs/public-demo.md](docs/public-demo.md). |
+| `deploy/build-image.sh` | Builds the public demo images (HMI and simulator) and pushes them to the registry in `deploy/registry.env`. `--only hmi\|sim` builds one, `--local` doesn't push. |
 | `npm run gen` | Regenerates the agent configs from `sim/src/plant.ts`. A test fails if they are out of date. |
 
 ## Where code goes

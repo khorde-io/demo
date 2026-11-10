@@ -1,0 +1,7 @@
+# Only the simulator's sources. Not the agent keys, not the generator's output.
+*
+!sim/package.json
+!sim/src
+
+**/*.test.ts
+**/.DS_Store

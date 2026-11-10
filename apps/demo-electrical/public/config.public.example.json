@@ -1,0 +1,19 @@
+{
+  "siteName": "Ventos da Serra",
+  "auth": {
+    "authority": "https://auth.example.com",
+    "clientId": "<client id of the HMI app on your hub>",
+    "projectId": "khorde_scada"
+  },
+  "api": { "http": "https://api.example.com/", "ws": "wss://api.example.com/" },
+  "defaults": { "theme": "dark-grey", "locale": "en" },
+  "themes": ["dark-grey", "range-green", "ink"],
+  "agents": ["vds-substation", "vds-windfarm"],
+  "demo": {
+    "accounts": [
+      { "role": "viewer", "username": "viewer@example.com", "password": "<public password>" },
+      { "role": "operator", "username": "operator@example.com", "password": "<public password>" },
+      { "role": "supervisor", "username": "supervisor@example.com", "password": "<public password>" }
+    ]
+  }
+}

@@ -82,6 +82,7 @@ html, body, #root { height: 100%; }
 .bench-analog input { width: 120px; }
 .bench :focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }
 
+.footer-shared { color: var(--chrome-text); font-weight: 600; }
 .footer-link { font: inherit; font-size: 12px; color: inherit; background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 0; }
 
 .page { padding: var(--space-6); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); color: var(--text-value); align-content: start; }

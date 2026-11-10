@@ -50,6 +50,35 @@ describe("validateConfig", () => {
   });
 });
 
+describe("demo accounts", () => {
+  const accounts = [
+    { role: "viewer", username: "viewer@vds.test", password: "public-1" },
+    { role: "operator", username: "operator@vds.test", password: "public-2" },
+  ];
+
+  it("are read when given, and absent otherwise", () => {
+    expect(validateConfig({ ...valid, demo: { accounts } }).demo?.accounts).toEqual(accounts);
+    expect(validateConfig(valid).demo).toBeUndefined();
+  });
+
+  it("say what is wrong with an account", () => {
+    const bad = { ...valid, demo: { accounts: [{ role: "admin", username: "a", password: "" }, "x"] } };
+    const problems = (() => {
+      try {
+        validateConfig(bad);
+        return [];
+      } catch (e) {
+        return (e as ConfigError).problems;
+      }
+    })();
+    expect(problems).toEqual([
+        "demo.accounts[0].role must be one of viewer, operator, supervisor",
+        "demo.accounts[0].password must be a non-empty string",
+        "demo.accounts[1] must be an object",
+      ]);
+  });
+});
+
 describe("loadConfig", () => {
   it("fetches and validates", async () => {
     const fetch = async () => new Response(JSON.stringify(valid));

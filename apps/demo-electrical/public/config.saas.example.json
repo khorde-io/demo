@@ -5,7 +5,7 @@
     "clientId": "<client id of the HMI app in your organization>",
     "projectId": "khorde_scada"
   },
-  "api": { "http": "https://api.khorde.io/", "ws": "wss://api.khorde.io/ws" },
+  "api": { "http": "https://api.khorde.io/", "ws": "wss://api.khorde.io/" },
   "defaults": { "theme": "dark-grey", "locale": "en" },
   "themes": ["dark-grey", "range-green", "ink"]
 }

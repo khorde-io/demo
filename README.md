@@ -197,6 +197,7 @@ interlock bench and the performance bench.
 - [ISA-101 rationale](docs/isa-101.md): the visual and interaction choices, and why.
 - [Accessibility](docs/accessibility.md): what is checked, the last audit, and how to run it.
 - [Performance](docs/performance.md): the 1,000-points-at-1-Hz target, results, and the bench.
+- [Running a public demo](docs/public-demo.md): the public build, shared accounts with sign-in hints, and the identity provider settings they need.
 
 ## Checks
 

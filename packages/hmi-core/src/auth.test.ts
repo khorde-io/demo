@@ -93,6 +93,13 @@ describe("createAuth", () => {
     expect(manager.signinRedirect).toHaveBeenCalledWith({ prompt: "select_account" });
   });
 
+  it("opens the provider's page on a given account, asking for its password", async () => {
+    const manager = fakeManager(null);
+    const auth = createAuth({ authority: "http://idp", clientId: "c", projectId: "p" }, { userManager: manager, location: location(), history });
+    await auth.login("operator@vds.test");
+    expect(manager.signinRedirect).toHaveBeenCalledWith({ login_hint: "operator@vds.test" });
+  });
+
   it("restores an existing session with roles", async () => {
     const auth = createAuth({ authority: "http://idp", clientId: "c", projectId: "p" }, { userManager: fakeManager(user()), location: location(), history });
     const state = await auth.init();

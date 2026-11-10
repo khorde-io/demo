@@ -1,0 +1,18 @@
+# Only what the build needs. Nothing local gets into the image: not the
+# config.json with its client id and passwords, not the agent keys.
+*
+!package.json
+!package-lock.json
+!tsconfig*.json
+!packages
+!apps
+!sim
+!deploy/nginx.conf
+
+**/node_modules
+**/dist
+**/dist-mock
+**/*.tsbuildinfo
+**/.DS_Store
+apps/demo-electrical/public/config*.json
+sim/keys

@@ -10,6 +10,7 @@
  *   TURBINES_PER_FEEDER    6      (must match the uploaded agent config)
  *   SCENARIO               showcase  (initial state; "normal" for a clean plant)
  *   THERMAL_SPEED          10     (transformer temperatures move this much faster)
+ *   PERF                   on     ("off" for a public deployment: no /perf routes, no generator)
  */
 
 import { createSimulation, SCENARIOS, type Scenario } from "./sim/model.ts";
@@ -51,15 +52,17 @@ setInterval(() => {
 
 // End-to-end performance points, started and stopped over HTTP (see perf.ts).
 // Their own publisher: a refused or slow perf batch never holds back plant values.
-const perf = createPerfGenerator();
-const perfPublisher = createPublisher({ url: env("WINDFARM_AGENT_URL", "http://agent-windfarm:9090"), maxQueue: 10_000, log });
-setInterval(() => {
-  // After a stop, what's queued is out of date, but the alarms must still return to normal.
-  const resets = perf.drain();
-  if (resets) perfPublisher.clear();
-  // Also on an empty list: it sends what a busy or failed request left queued.
-  void perfPublisher.publish(resets ?? perf.tick(Date.now()));
-}, 20);
+const perf = env("PERF", "on") === "off" ? undefined : createPerfGenerator();
+if (perf) {
+  const perfPublisher = createPublisher({ url: env("WINDFARM_AGENT_URL", "http://agent-windfarm:9090"), maxQueue: 10_000, log });
+  setInterval(() => {
+    // After a stop, what's queued is out of date, but the alarms must still return to normal.
+    const resets = perf.drain();
+    if (resets) perfPublisher.clear();
+    // Also on an empty list: it sends what a busy or failed request left queued.
+    void perfPublisher.publish(resets ?? perf.tick(Date.now()));
+  }, 20);
+}
 
 
 const port = Number(env("PORT", "8091"));

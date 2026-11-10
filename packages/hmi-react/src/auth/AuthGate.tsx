@@ -2,11 +2,15 @@
  * Sign-in, session-expired and no-access screens, and the gate that picks
  * between them and the HMI. These screens are application chrome, so they may
  * use the brand accent (ISA-101 keeps it out of process graphics only).
+ *
+ * In a public demonstration the sign-in screen lists the shared accounts with
+ * their passwords, says the plant is shared, and sends each visitor to the
+ * identity provider with the account's name filled in.
  */
 
 import "./auth.css";
-import { useState, type ReactNode } from "react";
-import type { Auth, AuthState } from "@khorde/hmi-core";
+import { useRef, useState, type ReactNode } from "react";
+import type { Auth, AuthState, DemoAccount } from "@khorde/hmi-core";
 import { useI18n, useReadable } from "../context.tsx";
 
 export interface AuthScreenProps {
@@ -14,10 +18,10 @@ export interface AuthScreenProps {
   logo?: ReactNode;
 }
 
-function Screen({ logo, title, children }: { logo?: ReactNode; title: string; children: ReactNode }) {
+function Screen({ logo, title, wide = false, children }: { logo?: ReactNode; title: string; wide?: boolean | undefined; children: ReactNode }) {
   return (
     <main className="kh-auth">
-      <section className="kh-auth-card" aria-labelledby="kh-auth-title">
+      <section className={wide ? "kh-auth-card kh-auth-card--wide" : "kh-auth-card"} aria-labelledby="kh-auth-title">
         {logo}
         <h1 id="kh-auth-title">{title}</h1>
         {children}
@@ -26,18 +30,99 @@ function Screen({ logo, title, children }: { logo?: ReactNode; title: string; ch
   );
 }
 
-export function LoginScreen({ site, logo, onSignIn, failed = false, busy = false }: AuthScreenProps & { onSignIn: () => void; failed?: boolean; busy?: boolean }) {
+/**
+ * A value with a button that copies it, saying so for a moment. Where the
+ * browser won't let the page write the clipboard, it selects the value instead,
+ * ready for the visitor's own copy.
+ */
+function Copyable({ value, label }: { value: string; label: string }) {
+  const i18n = useI18n();
+  const [copied, setCopied] = useState(false);
+  const text = useRef<HTMLElement>(null);
+  const select = () => {
+    const el = text.current;
+    const selection = window.getSelection();
+    if (!el || !selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+  const copy = () => {
+    const done = () => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    };
+    if (!navigator.clipboard) return select();
+    navigator.clipboard.writeText(value).then(done, select);
+    return undefined;
+  };
+  return (
+    <dd>
+      <code ref={text}>{value}</code>
+      <button type="button" className="kh-auth-copy" onClick={copy}>
+        <span aria-hidden="true">{i18n.t(copied ? "auth.demo.copied" : "auth.demo.copy")}</span>
+        <span className="kh-sr-only">{copied ? i18n.t("auth.demo.copied") : label}</span>
+      </button>
+    </dd>
+  );
+}
+
+function DemoAccounts({ accounts, onSignInAs, busy }: { accounts: readonly DemoAccount[]; onSignInAs: (username: string) => void; busy: boolean }) {
   const i18n = useI18n();
   return (
-    <Screen logo={logo} title={i18n.t("auth.title", { site })}>
-      <p>{i18n.t("auth.intro")}</p>
+    <ul className="kh-auth-accounts">
+      {accounts.map((a) => {
+        const role = i18n.t(`shell.role.${a.role}`);
+        return (
+          <li key={a.username} className="kh-auth-account">
+            <h2>{role}</h2>
+            <p>{i18n.t(`auth.demo.roles.${a.role}`)}</p>
+            <dl>
+              <dt>{i18n.t("auth.demo.user")}</dt>
+              <Copyable value={a.username} label={i18n.t("auth.demo.copyUser", { role })} />
+              <dt>{i18n.t("auth.demo.password")}</dt>
+              <Copyable value={a.password} label={i18n.t("auth.demo.copyPassword", { role })} />
+            </dl>
+            <button type="button" className="kh-auth-btn" onClick={() => onSignInAs(a.username)} disabled={busy}>
+              {i18n.t("auth.demo.signInAs", { role })}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export function LoginScreen({
+  site,
+  logo,
+  onSignIn,
+  failed = false,
+  busy = false,
+  demoAccounts,
+}: AuthScreenProps & { onSignIn: (username?: string) => void; failed?: boolean; busy?: boolean; demoAccounts?: readonly DemoAccount[] | undefined }) {
+  const i18n = useI18n();
+  const demo = demoAccounts && demoAccounts.length > 0;
+  return (
+    <Screen logo={logo} title={i18n.t("auth.title", { site })} wide={demo}>
+      {demo ? (
+        <>
+          <p>{i18n.t("auth.demo.intro")}</p>
+          <p className="kh-auth-shared">{i18n.t("auth.demo.shared")}</p>
+          <p>{i18n.t("auth.demo.steps")}</p>
+        </>
+      ) : (
+        <p>{i18n.t("auth.intro")}</p>
+      )}
       {failed && (
         <p className="kh-auth-error" role="alert">
           {i18n.t("auth.failed")}
         </p>
       )}
-      <button type="button" className="kh-auth-btn" onClick={onSignIn} disabled={busy}>
-        {busy ? i18n.t("auth.loading") : i18n.t("auth.signIn")}
+      {demo && <DemoAccounts accounts={demoAccounts} onSignInAs={onSignIn} busy={busy} />}
+      <button type="button" className={demo ? "kh-auth-btn kh-auth-btn--quiet" : "kh-auth-btn"} onClick={() => onSignIn()} disabled={busy}>
+        {busy ? i18n.t("auth.loading") : i18n.t(demo ? "auth.demo.own" : "auth.signIn")}
       </button>
     </Screen>
   );
@@ -82,23 +167,42 @@ export function gateView(state: AuthState, wasSignedIn: boolean, canView: boolea
   return canView ? "open" : "denied";
 }
 
-export function AuthGate({ auth, site, logo, children }: AuthScreenProps & { auth: Auth; children: ReactNode }) {
+export function AuthGate({
+  auth,
+  site,
+  logo,
+  demoAccounts,
+  children,
+}: AuthScreenProps & { auth: Auth; demoAccounts?: readonly DemoAccount[] | undefined; children: ReactNode }) {
   const state = useReadable(auth);
   // Remembered across renders: a later sign-out then reads as an expired session.
   const [wasSignedIn, setWasSignedIn] = useState(false);
   if (state.status === "signedIn" && !wasSignedIn) setWasSignedIn(true);
+  // Reaching the identity provider can fail before leaving the page (it is down, or unreachable).
+  const [unreachable, setUnreachable] = useState(false);
   const view = gateView(state, wasSignedIn, auth.can("view"));
-  const signIn = () => void auth.login();
+  const signIn = (username?: string) => {
+    setUnreachable(false);
+    auth.login(username).catch(() => setUnreachable(true));
+  };
+  // In a demo, an expired session goes back to the list of accounts, not to the provider's picker.
+  const demo = Boolean(demoAccounts?.length);
   switch (view) {
     case "loading":
-      return <LoginScreen site={site} logo={logo} onSignIn={signIn} busy />;
+      return <LoginScreen site={site} logo={logo} onSignIn={signIn} busy demoAccounts={demoAccounts} />;
     case "login":
     case "loginFailed":
-      return <LoginScreen site={site} logo={logo} onSignIn={signIn} failed={view === "loginFailed"} />;
+      return <LoginScreen site={site} logo={logo} onSignIn={signIn} failed={view === "loginFailed" || unreachable} demoAccounts={demoAccounts} />;
     case "expired":
-      return <SessionExpired logo={logo} onSignIn={signIn} />;
+      return demo ? (
+        <LoginScreen site={site} logo={logo} onSignIn={signIn} failed={unreachable} demoAccounts={demoAccounts} />
+      ) : (
+        <SessionExpired logo={logo} onSignIn={() => signIn()} />
+      );
     case "denied":
-      return <AccessDenied logo={logo} name={state.user?.name ?? ""} onSignOut={() => void auth.logout()} onSwitchUser={signIn} />;
+      return (
+        <AccessDenied logo={logo} name={state.user?.name ?? ""} onSignOut={() => void auth.logout()} onSwitchUser={() => (demo ? void auth.logout() : signIn())} />
+      );
     default:
       return <>{children}</>;
   }
